@@ -1,1 +1,1 @@
-print("Hello world, from server!")
+print("Hello welcome to grow a reef!")
