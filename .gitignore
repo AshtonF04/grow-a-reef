@@ -6,3 +6,20 @@
 /*.rbxl.lock
 
 sourcemap.json
+
+# Rojo build outputs (rebuilt from src/ every sync)
+*.rbxl
+*.rbxlx
+sourcemap.json
+
+# Wally packages (regenerated with `wally install`)
+Packages/
+
+# macOS
+.DS_Store
+
+# Editor / temp files
+.vscode/
+*.swp
+*.log
+s
