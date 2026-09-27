@@ -13,7 +13,7 @@ export type CoralDefinition = {
     traitPool: { string }, -- List of traits this coral can naturally have when planted
 }
 
-local CoralDefinitions = { [string]: CoralDefinition } = {\
+local CoralDefinitions: { [string]: CoralDefinition } = {
 
     sun_coral = {
         id = "sun_coral",
@@ -34,4 +34,4 @@ for _, coral in CoralDefinitions do
 end
 table.freeze(CoralDefinitions)
 
-return CoralDefinitionsß
+return CoralDefinitions
