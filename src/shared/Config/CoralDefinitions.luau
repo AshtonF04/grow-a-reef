@@ -1,4 +1,7 @@
 --!strict
+export type LightLevel = "Bright" | "Dim"
+export type FlowLevel = "Low" | "Medium" | "High"
+
 export type CoralDefinition = {
     id: string, -- The id of the specific coral used to reference it in definitionns data
     displayName: string, -- Display name of the coral shown to players
@@ -18,7 +21,7 @@ local CoralDefinitions = { [string]: CoralDefinition } = {\
         zone = 1,
         growSeconds = 300,
         baseYield = 18,
-        light = "High",
+        light = "Bright",
         flow = "Medium",
         traitPool = {}
     }
