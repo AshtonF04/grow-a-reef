@@ -18,10 +18,10 @@ local PlayerStateService = {}
 PlayerStateService.Players = {} :: { [string]: PlayerState }
 
 function PlayerStateService.InitPlayerState(player: Player): PlayerState
-    local playerID = tostring(player.UserId)
+    local userId = tostring(player.UserId)
 
     local newState: PlayerState = {
-        playerID = playerID,
+        playerID = userId,
         shells = 0,
         pearls = 0,
         socketUnlocks = {
@@ -33,10 +33,15 @@ function PlayerStateService.InitPlayerState(player: Player): PlayerState
         }
     }
 
-    PlayerStateService.Players[playerID] = newState
-
-    print(PlayerStateService.Players)
+    PlayerStateService.Players[newState.playerID] = newState
 end
+
+function PlayerStateService.RemovePlayer(player: Player)
+    local userId = tostring(player.UserId)
+    PlayerStateService.Players[userId] = nil
+end
+
+
 
 print("Player Service Started...")
 
