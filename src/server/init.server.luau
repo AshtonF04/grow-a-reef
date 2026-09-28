@@ -1,8 +1,14 @@
--- src/server/ServerMain.server.luau
+-- Require Roblox Services
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local PlayerService = require(script.PlayerService)
+-- Require Game Services
+local PlayerStateService = require(script.PlayerStateService)
+
+-- Init Player On Join
+game.Players.PlayerAdded:Connect(function(player: Player)
+    local playerState = PlayerStateService.InitPlayerState(player)
+end)
 
 -- 1. Build the remotes. They exist only as instances created here,
 local remotes = Instance.new("Folder")
