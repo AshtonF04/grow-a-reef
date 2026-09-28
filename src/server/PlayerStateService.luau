@@ -17,7 +17,7 @@ local PlayerStateService = {}
 
 PlayerStateService.Players = {} :: { [string]: PlayerState }
 
-function PlayerStateService.InitPlayerState(player: Player): PlayerState
+function PlayerStateService.InitPlayerState(player: Player) : PlayerState
     local userId = tostring(player.UserId)
 
     local newState: PlayerState = {
@@ -41,7 +41,17 @@ function PlayerStateService.RemovePlayer(player: Player)
     PlayerStateService.Players[userId] = nil
 end
 
+function PlayerStateService.GetState(player: Player | string) : PlayerState
+    local userId: string
 
+    if typeof(player) == "Instance" then
+        userId = tostring(player.UserId)
+    else
+        userId = player
+    end
+
+    return PlayerStateService.Players[userId]
+end
 
 print("Player Service Started...")
 
