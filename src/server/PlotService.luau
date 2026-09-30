@@ -76,14 +76,15 @@ local function addKelp(parent: Instance, pad: BasePart)
 		local height = heights[index]
 		local stalk = Instance.new("Part")
 		stalk.Name = "Kelp"
-		stalk.Size = Vector3.new(0.32, height, 0.32)
-		stalk.Color = Color3.fromRGB(36, 108, 64):Lerp(Color3.fromRGB(70, 150, 78), index / #spots)
-		stalk.Material = Enum.Material.Grass
+		stalk.Size = Vector3.new(1.1, height, 0.14)
+		stalk.Color = Color3.fromRGB(46, 124, 62):Lerp(Color3.fromRGB(104, 164, 70), index / #spots)
+		stalk.Material = Enum.Material.SmoothPlastic
 		stalk.CanCollide = false
 		stalk.CanQuery = false
 		stalk.CanTouch = false
+		stalk.CastShadow = false
 		smooth(stalk)
-		local bottom = pad.CFrame * CFrame.new(spot.X, pad.Size.Y / 2, spot.Z)
+		local bottom = pad.CFrame * CFrame.new(spot.X, pad.Size.Y / 2, spot.Z) * CFrame.Angles(0, index * 1.1, 0)
 		stalk.CFrame = bottom * CFrame.new(0, height / 2, 0)
 		stalk:SetAttribute("Phase", index * 0.9)
 		stalk.Parent = parent

@@ -5,6 +5,7 @@ local GameConfig = require(script.Parent.Config.GameConfig)
 local SocketDefinitions = require(script.Parent.Config.SocketDefinitions)
 local Types = require(script.Parent.Types)
 
+type CoralDefinition = CoralDefinitions.CoralDefinition
 type SocketDefinition = SocketDefinitions.SocketDefinition
 type PlayerState = Types.PlayerState
 
@@ -13,29 +14,56 @@ export type ActionBlock = {
 	message: string,
 }
 
+-- flourishing: light and flow both match. partial: one matches. poor: neither.
+export type Fit = "flourishing" | "partial" | "poor"
+export type Stage = "Fragment" | "Sprouting" | "Growing" | "Mature"
+export type StepKind = "harvest" | "plant" | "unlock" | "buy" | "wait" | "save" | "done"
+
+local FIT_RANK: { [Fit]: number } = {
+	flourishing = 2,
+	partial = 1,
+	poor = 0,
+}
+
 local ReefRules = {}
 
-local ordered: { SocketDefinition } = {}
+local orderedSockets: { SocketDefinition } = {}
 for _, socket in SocketDefinitions do
-	table.insert(ordered, socket)
+	table.insert(orderedSockets, socket)
 end
-table.sort(ordered, function(a, b)
+table.sort(orderedSockets, function(a, b)
 	return a.unlockOrder < b.unlockOrder
 end)
-table.freeze(ordered)
+table.freeze(orderedSockets)
+
+local orderedCorals: { CoralDefinition } = {}
+for _, coral in CoralDefinitions do
+	table.insert(orderedCorals, coral)
+end
+table.sort(orderedCorals, function(a, b)
+	if a.nurseryCost ~= b.nurseryCost then
+		return a.nurseryCost < b.nurseryCost
+	end
+	return a.id < b.id
+end)
+table.freeze(orderedCorals)
 
 function ReefRules.OrderedSockets(): { SocketDefinition }
-	return ordered
+	return orderedSockets
+end
+
+function ReefRules.OrderedCorals(): { CoralDefinition }
+	return orderedCorals
 end
 
 function ReefRules.GrowDuration(coralId: string): number
-	local override = GameConfig.DevGrowSeconds
-	if override ~= nil then
-		return override
-	end
 	local coral = CoralDefinitions[coralId]
 	if not coral then
 		return 0
+	end
+	local scale = GameConfig.DevTimeScale
+	if scale ~= nil then
+		return coral.growSeconds * scale
 	end
 	return coral.growSeconds
 end
@@ -57,24 +85,103 @@ function ReefRules.Progress(plantedAt: number, coralId: string, now: number): nu
 	return math.clamp((now - plantedAt) / duration, 0, 1)
 end
 
+function ReefRules.StageOf(plantedAt: number, coralId: string, now: number): Stage
+	if ReefRules.IsMature(plantedAt, coralId, now) then
+		return "Mature"
+	end
+	local progress = ReefRules.Progress(plantedAt, coralId, now)
+	if progress >= 0.5 then
+		return "Growing"
+	elseif progress >= 0.15 then
+		return "Sprouting"
+	end
+	return "Fragment"
+end
+
 function ReefRules.FormatTime(seconds: number): string
 	local remaining = math.max(0, math.ceil(seconds - 1e-3))
-	local minutes = math.floor(remaining / 60)
+	local hours = math.floor(remaining / 3600)
+	local minutes = math.floor((remaining % 3600) / 60)
 	local secs = remaining % 60
+	if hours > 0 then
+		return string.format("%d:%02d:%02d", hours, minutes, secs)
+	end
 	return string.format("%d:%02d", minutes, secs)
 end
 
-function ReefRules.FirstFragment(state: PlayerState): string?
-	local starter = state.fragments.sun_coral
-	if starter ~= nil and starter > 0 then
-		return "sun_coral"
+function ReefRules.Fit(coralId: string, socketId: string): Fit
+	local coral = CoralDefinitions[coralId]
+	local socket = SocketDefinitions[socketId]
+	if not coral or not socket then
+		return "poor"
 	end
-	for id, count in state.fragments do
-		if count > 0 and CoralDefinitions[id] ~= nil then
-			return id
+	local matches = (if coral.light == socket.light then 1 else 0) + (if coral.flow == socket.flow then 1 else 0)
+	if matches == 2 then
+		return "flourishing"
+	elseif matches == 1 then
+		return "partial"
+	end
+	return "poor"
+end
+
+function ReefRules.HarvestYield(coralId: string, socketId: string): number
+	local coral = CoralDefinitions[coralId]
+	if not coral then
+		return 0
+	end
+	if ReefRules.Fit(coralId, socketId) == "flourishing" then
+		return math.floor(coral.baseYield * GameConfig.FlourishMultiplier + 0.5)
+	end
+	return coral.baseYield
+end
+
+-- The socket where this coral flourishes.
+function ReefRules.HomeSocket(coralId: string): SocketDefinition?
+	for _, socket in orderedSockets do
+		if ReefRules.Fit(coralId, socket.id) == "flourishing" then
+			return socket
 		end
 	end
 	return nil
+end
+
+-- The coral that flourishes on this socket.
+function ReefRules.HomeCoral(socketId: string): CoralDefinition?
+	for _, coral in orderedCorals do
+		if ReefRules.Fit(coral.id, socketId) == "flourishing" then
+			return coral
+		end
+	end
+	return nil
+end
+
+function ReefRules.OwnedCorals(state: PlayerState): { string }
+	local owned = {}
+	for _, coral in orderedCorals do
+		if (state.fragments[coral.id] or 0) > 0 then
+			table.insert(owned, coral.id)
+		end
+	end
+	return owned
+end
+
+-- Which fragment to plant on a socket: the player's pick if they still own it, else the best fit.
+function ReefRules.BestFragment(state: PlayerState, socketId: string, preferred: string?): string?
+	if preferred and CoralDefinitions[preferred] and (state.fragments[preferred] or 0) > 0 then
+		return preferred
+	end
+	local best: string? = nil
+	local bestRank = -1
+	for _, coral in orderedCorals do
+		if (state.fragments[coral.id] or 0) > 0 then
+			local rank = FIT_RANK[ReefRules.Fit(coral.id, socketId)]
+			if rank > bestRank then
+				best = coral.id
+				bestRank = rank
+			end
+		end
+	end
+	return best
 end
 
 function ReefRules.ConditionText(socketId: string): string
@@ -83,6 +190,10 @@ function ReefRules.ConditionText(socketId: string): string
 		return ""
 	end
 	return string.format("%s light   ·   %s flow", socket.light, socket.flow)
+end
+
+function ReefRules.BonusText(): string
+	return string.format("+%d%% shells", math.floor((GameConfig.FlourishMultiplier - 1) * 100 + 0.5))
 end
 
 function ReefRules.MatchText(coralId: string, socketId: string): string
@@ -99,7 +210,7 @@ function ReefRules.MatchText(coralId: string, socketId: string): string
 		table.insert(wants, string.format("%s flow", string.lower(coral.flow)))
 	end
 	if #wants == 0 then
-		return coral.displayName .. " thrives here"
+		return string.format("%s flourishes here  ·  %s", coral.displayName, ReefRules.BonusText())
 	end
 	return coral.displayName .. " wants " .. table.concat(wants, " and ")
 end
@@ -136,6 +247,30 @@ function ReefRules.UnlockBlock(state: PlayerState, socketId: string): ActionBloc
 		}
 	end
 
+	return nil
+end
+
+function ReefRules.BuyBlock(state: PlayerState, coralId: string): ActionBlock?
+	local coral = CoralDefinitions[coralId]
+	if not coral then
+		return { code = "unknown", message = "That coral isn't in the Nursery." }
+	end
+	if (state.fragments[coralId] or 0) >= GameConfig.MaxFragmentsPerCoral then
+		return {
+			code = "full",
+			message = string.format("You can't hold more %s fragments.", coral.displayName),
+		}
+	end
+	if state.shells < coral.nurseryCost then
+		return {
+			code = "shells",
+			message = string.format(
+				"You need %d more shells for a %s fragment.",
+				coral.nurseryCost - state.shells,
+				coral.displayName
+			),
+		}
+	end
 	return nil
 end
 
@@ -178,7 +313,7 @@ function ReefRules.HarvestBlock(state: PlayerState, socketId: string, now: numbe
 	return nil
 end
 
-function ReefRules.StatusLine(state: PlayerState, socketId: string, now: number): string
+function ReefRules.StatusLine(state: PlayerState, socketId: string, now: number, preferred: string?): string
 	local socket = SocketDefinitions[socketId]
 	if not socket then
 		return ""
@@ -196,66 +331,101 @@ function ReefRules.StatusLine(state: PlayerState, socketId: string, now: number)
 		local coral = CoralDefinitions[placement.coralId]
 		local coralName = if coral then coral.displayName else "Coral"
 		if ReefRules.IsMature(placement.plantedAt, placement.coralId, now) then
+			if ReefRules.Fit(placement.coralId, socketId) == "flourishing" then
+				return coralName .. " is flourishing"
+			end
 			return coralName .. " is ready"
 		end
 		local remain = ReefRules.RemainingSeconds(placement.plantedAt, placement.coralId, now)
-		return "Growing  ·  " .. ReefRules.FormatTime(remain)
+		local stage = ReefRules.StageOf(placement.plantedAt, placement.coralId, now)
+		return stage .. "  ·  " .. ReefRules.FormatTime(remain)
 	end
 
-	local coralId = ReefRules.FirstFragment(state)
+	local coralId = ReefRules.BestFragment(state, socketId, preferred)
 	if not coralId then
-		return "No fragments to plant"
+		return "Empty  ·  buy a fragment"
 	end
 	local coral = CoralDefinitions[coralId]
 	return "Plant " .. (if coral then coral.displayName else "coral")
 end
 
-function ReefRules.NextStep(state: PlayerState, now: number): string
-	for _, socket in ordered do
+function ReefRules.NextStep(state: PlayerState, now: number): (string, StepKind, string?)
+	for _, socket in orderedSockets do
 		local placement = state.placements[socket.id]
 		if placement and ReefRules.IsMature(placement.plantedAt, placement.coralId, now) then
-			return socket.displayName .. " is ready to harvest."
+			return socket.displayName .. " is ready to harvest.", "harvest", socket.id
+		end
+	end
+
+	local emptyOpen: { SocketDefinition } = {}
+	for _, socket in orderedSockets do
+		if state.socketUnlocks[socket.id] and state.placements[socket.id] == nil then
+			table.insert(emptyOpen, socket)
+		end
+	end
+
+	for _, socket in emptyOpen do
+		local coralId = ReefRules.BestFragment(state, socket.id)
+		local coral = if coralId then CoralDefinitions[coralId] else nil
+		if coral then
+			return string.format("Plant %s on %s.", coral.displayName, socket.displayName), "plant", socket.id
 		end
 	end
 
 	local nextLocked: SocketDefinition? = nil
-	for _, socket in ordered do
+	for _, socket in orderedSockets do
 		if not state.socketUnlocks[socket.id] then
 			nextLocked = socket
 			break
 		end
 	end
 	if nextLocked and ReefRules.UnlockBlock(state, nextLocked.id) == nil then
-		return string.format("Open %s for %d shells.", nextLocked.displayName, nextLocked.unlockCostShells)
+		return string.format("Open %s for %d shells.", nextLocked.displayName, nextLocked.unlockCostShells), "unlock", nextLocked.id
 	end
 
-	local coralId = ReefRules.FirstFragment(state)
-	if coralId then
-		for _, socket in ordered do
-			if state.socketUnlocks[socket.id] and state.placements[socket.id] == nil then
-				local coral = CoralDefinitions[coralId]
-				local name = if coral then coral.displayName else "coral"
-				return string.format("Plant %s on %s.", name, socket.displayName)
+	local saveUp: string? = nil
+	for _, socket in emptyOpen do
+		local home = ReefRules.HomeCoral(socket.id)
+		if home then
+			if ReefRules.BuyBlock(state, home.id) == nil then
+				return string.format(
+					"Buy a %s fragment in the Nursery for %s.",
+					home.displayName,
+					socket.displayName
+				),
+					"buy",
+					socket.id
+			elseif not saveUp then
+				saveUp = string.format(
+					"Save %d shells for a %s fragment for %s.",
+					home.nurseryCost,
+					home.displayName,
+					socket.displayName
+				)
 			end
 		end
 	end
 
-	for _, socket in ordered do
+	for _, socket in orderedSockets do
 		local placement = state.placements[socket.id]
 		if placement and not ReefRules.IsMature(placement.plantedAt, placement.coralId, now) then
 			local remain = ReefRules.RemainingSeconds(placement.plantedAt, placement.coralId, now)
-			return string.format("%s is growing  ·  %s", socket.displayName, ReefRules.FormatTime(remain))
+			return string.format("%s is growing  ·  %s", socket.displayName, ReefRules.FormatTime(remain)), "wait"
 		end
+	end
+
+	if saveUp then
+		return saveUp, "save"
 	end
 
 	if nextLocked then
 		local block = ReefRules.UnlockBlock(state, nextLocked.id)
 		if block then
-			return block.message
+			return block.message, "save"
 		end
 	end
 
-	return "Every spot on this reef is open."
+	return "Every spot on this reef is open.", "done"
 end
 
 do
@@ -265,6 +435,9 @@ do
 	assert(sandy ~= nil, "sandy_patch definition missing")
 	assert(sun.light == sandy.light and sun.flow == sandy.flow, "Sandy Patch should match Sun Coral")
 	assert(sandy.unlockCostShells == 0, "Sandy Patch should start free")
+	for _, coral in orderedCorals do
+		assert(ReefRules.HomeSocket(coral.id) ~= nil, coral.id .. " has no socket where it flourishes")
+	end
 end
 
 return ReefRules

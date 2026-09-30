@@ -18,13 +18,13 @@ local sockets: { [string]: SocketDress } = {
 		material = Enum.Material.Sand,
 	},
 	sun_ledge = {
-		offset = Vector3.new(-18, 1.4, -1),
+		offset = Vector3.new(-18, 0, -1),
 		size = Vector3.new(11, 2.4, 8),
 		color = Color3.fromRGB(176, 138, 98),
 		material = Enum.Material.Sandstone,
 	},
 	surge_channel = {
-		offset = Vector3.new(18, 0.15, -4),
+		offset = Vector3.new(18, 0, -4),
 		size = Vector3.new(8, 1, 16),
 		color = Color3.fromRGB(118, 132, 130),
 		material = Enum.Material.Slate,
@@ -36,7 +36,7 @@ local sockets: { [string]: SocketDress } = {
 		material = Enum.Material.Sand,
 	},
 	rock_crevice = {
-		offset = Vector3.new(-2, 0.8, -18),
+		offset = Vector3.new(-2, 0, -18),
 		size = Vector3.new(7, 2.2, 6),
 		color = Color3.fromRGB(108, 104, 100),
 		material = Enum.Material.Rock,

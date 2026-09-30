@@ -40,4 +40,5 @@ return {
 	unlock_socket = makeEvent(folder, "unlock_socket"),
 	plant_coral = makeEvent(folder, "plant_coral"),
 	harvest_coral = makeEvent(folder, "harvest_coral"),
+	buy_fragment = makeEvent(folder, "buy_fragment"),
 }

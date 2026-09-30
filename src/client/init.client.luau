@@ -36,6 +36,7 @@ local requestState = event("request_state")
 local unlockSocket = event("unlock_socket")
 local plantCoral = event("plant_coral")
 local harvestCoral = event("harvest_coral")
+local buyFragment = event("buy_fragment")
 
 local actions = {
 	unlock = function(socketId: string)
@@ -46,6 +47,9 @@ local actions = {
 	end,
 	harvest = function(socketId: string)
 		harvestCoral:FireServer(socketId)
+	end,
+	buy = function(coralId: string)
+		buyFragment:FireServer(coralId)
 	end,
 }
 
@@ -102,6 +106,6 @@ RunService.Heartbeat:Connect(function()
 	if latest then
 		local now = workspace:GetServerTimeNow()
 		HUDService.Tick(latest, now)
-		ReefVisuals.Tick(latest, now)
+		ReefVisuals.Tick(latest, now, HUDService.CoveredRects())
 	end
 end)

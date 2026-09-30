@@ -140,7 +140,7 @@ local function buildPlaque(parent: Instance)
 
 	line("GROW A REEF", 48, Fonts.Bold, Color3.fromRGB(240, 248, 244), 56)
 	line(
-		"Plant a fragment. Wait for it to mature. Harvest shells, then open the next spot.",
+		"Plant a fragment. Harvest shells. Open new spots and buy the coral that flourishes there.",
 		22,
 		Fonts.Body,
 		Color3.fromRGB(186, 214, 208),
