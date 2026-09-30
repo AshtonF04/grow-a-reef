@@ -3,8 +3,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CoralDefinitions = require(ReplicatedStorage.Shared.Config.CoralDefinitions)
 type CoralDefinition = CoralDefinitions.CoralDefinition
 
-local remotes = ReplicatedStorage:WaitForChild("Remotes")
-
 -- Player State Type
 export type PlayerState = {
     playerID: string | nil,
@@ -36,7 +34,8 @@ function PlayerStateService.InitPlayerState(player: Player) : PlayerState
     }
 
     PlayerStateService.Players[newState.playerID] = newState
-    remotes.state_changed:FireClient(player, newState)
+    
+    return newState
 end
 
 function PlayerStateService.RemovePlayer(player: Player)
