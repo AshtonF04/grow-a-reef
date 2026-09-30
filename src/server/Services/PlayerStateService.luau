@@ -1,49 +1,62 @@
+--!strict
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local CoralDefinitions = require(ReplicatedStorage.Shared.Config.CoralDefinitions)
-type CoralDefinition = CoralDefinitions.CoralDefinition
-
--- Player State Type
-export type PlayerState = {
-    playerID: string | nil,
-    shells: number,
-    pearls: number,
-    socketUnlocks: { [string]: boolean },
-    placements: { [string]: CoralDefinition? },
-    fragments: { [string]: number }
-}
+local SocketDefinitions = require(ReplicatedStorage.Shared.Config.SocketDefinitions)
+local Types = require(ReplicatedStorage.Shared.Types)
 
 local PlayerStateService = {}
 
-PlayerStateService.Players = {} :: { [string]: PlayerState }
+type Session = { data: Types.PlayerData, plotId: string?, loaded: boolean }
+type Sessions = { [string]: Session? }
+PlayerStateService.Sessions = {} :: Sessions
 
-function PlayerStateService.InitPlayerState(player: Player) : PlayerState
-    local userId = tostring(player.UserId)
+function PlayerStateService.buildDefaultData() : Types.PlayerData
+    -- Iterate over all sockets to build a table setting that socket to true (unlocked) if unlock cost is 0, and false otherwise
+    local sockets: { [string]: boolean } = {}
+    for socketId, socket in SocketDefinitions do
+        sockets[socketId] = socket.unlockCostShells == 0
+    end
 
-    local newState: PlayerState = {
-        playerID = userId,
-        shells = 0,
-        pearls = 0,
-        socketUnlocks = {
-            sandy_patch = false
+    -- Define all default player data
+    local data: Types.PlayerData = {
+        version = 1,
+        currencies = { 
+            shells = 0, 
+            pearls = 0 
+        },
+        unlocks = {
+            zone = 1,
+            sockets = sockets,
+        },
+        inventory = { 
+            fragments = { 
+                sun_coral = 1 
+            } 
         },
         placements = {},
-        fragments = {
-            sun_coral = 1
-        }
+        discoveries = { corals = {}, fish = {}, traits = {} },
+        tutorial = { version = 1, step = "start", done = false },
+        meta = { firstJoin = os.time(), lastSeen = os.time() },
     }
+    return data
+end
 
-    PlayerStateService.Players[newState.playerID] = newState
-    
-    return newState
+function PlayerStateService.InitPlayerState(player: Player) : Types.PlayerData
+    local userId : string = tostring(player.UserId)
+    local defaultData: Types.PlayerData = PlayerStateService.buildDefaultData()
+
+    local newSession: Session = { data = defaultData, plotId = nil, loaded = true }
+    PlayerStateService.Sessions[userId] = newSession
+
+    return newSession.data
 end
 
 function PlayerStateService.RemovePlayer(player: Player)
     local userId = tostring(player.UserId)
-    PlayerStateService.Players[userId] = nil
+    PlayerStateService.Sessions[userId] = nil
 end
 
-function PlayerStateService.GetState(player: Player | string) : PlayerState
+function PlayerStateService.GetState(player: Player | string): Types.PlayerData?
     local userId: string
 
     if typeof(player) == "Instance" then
@@ -52,9 +65,16 @@ function PlayerStateService.GetState(player: Player | string) : PlayerState
         userId = player
     end
 
-    return PlayerStateService.Players[userId]
+    local session = PlayerStateService.Sessions[userId]
+    if session == nil then
+        return nil
+    end
+
+    return session.data
 end
 
-print("Player Service Started...")
+function PlayerStateService.Init()
+
+end
 
 return PlayerStateService

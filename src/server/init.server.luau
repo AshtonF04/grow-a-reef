@@ -10,8 +10,7 @@ local PlayerStateService = require(script.Services.PlayerStateService)
 
 -- Init Player On Join
 game.Players.PlayerAdded:Connect(function(player: Player)
-    local playerState = PlayerStateService.InitPlayerState(player)
-    return playerState
+    PlayerStateService.InitPlayerState(player)
 end)
 
 -- Remove player from list on game leave
