@@ -31,10 +31,11 @@
         "$className": "Part",
         "$properties": {
           "Anchored": true,
+          "Material": "Slate",
           "Color": [
-            0.38823,
-            0.37254,
-            0.38823
+            0.18,
+            0.28,
+            0.29
           ],
           "Locked": true,
           "Position": [
@@ -53,14 +54,28 @@
     "Lighting": {
       "$properties": {
         "Ambient": [
-          0,
-          0,
-          0
+          0.25,
+          0.35,
+          0.38
         ],
-        "Brightness": 2,
+        "OutdoorAmbient": [
+          0.45,
+          0.55,
+          0.58
+        ],
+        "Brightness": 2.4,
+        "ClockTime": 13.2,
+        "GeographicLatitude": 8,
         "GlobalShadows": true,
         "Outlines": false,
-        "Technology": "Voxel"
+        "Technology": "Future",
+        "FogColor": [
+          0.55,
+          0.74,
+          0.78
+        ],
+        "FogStart": 45,
+        "FogEnd": 320
       }
     },
     "SoundService": {
