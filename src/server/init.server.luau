@@ -6,6 +6,10 @@ local remotes = Instance.new("Folder")
 remotes.Name = "Remotes"
 remotes.Parent = ReplicatedStorage
 
+-- Boot-load shared configs (runs definition validation)
+require(ReplicatedStorage.Shared.Config.SocketDefinitions)
+require(ReplicatedStorage.Shared.Config.CoralDefinitions)
+
 -- Require Game Services
 local PlayerStateService = require(script.Services.PlayerStateService)
 
