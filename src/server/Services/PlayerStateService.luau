@@ -10,6 +10,18 @@ type Session = { data: Types.PlayerData, plotId: string?, loaded: boolean }
 type Sessions = { [string]: Session? }
 PlayerStateService.Sessions = {} :: Sessions
 
+local function getUserId(player : Player | string) : string
+    local userId: string
+
+    if typeof(player) == "Instance" then
+        userId = tostring(player.UserId)
+    else
+        userId = player
+    end
+
+    return userId
+end
+
 function PlayerStateService.buildDefaultData() : Types.PlayerData
     -- Iterate over all sockets to build a table setting that socket to true (unlocked) if unlock cost is 0, and false otherwise
     local sockets: { [string]: boolean } = {}
@@ -57,13 +69,7 @@ function PlayerStateService.RemovePlayer(player: Player)
 end
 
 function PlayerStateService.GetState(player: Player | string): Types.PlayerData?
-    local userId: string
-
-    if typeof(player) == "Instance" then
-        userId = tostring(player.UserId)
-    else
-        userId = player
-    end
+    local userId = getUserId(player)
 
     local session = PlayerStateService.Sessions[userId]
     if session == nil then
@@ -72,6 +78,35 @@ function PlayerStateService.GetState(player: Player | string): Types.PlayerData?
 
     return session.data
 end
+
+function PlayerStateService.IsLoaded(player: Player | string) : boolean
+    local userId : string = getUserId(player)
+    local session : Session? = PlayerStateService.Sessions[userId]
+    if session and session.loaded then
+        return true
+    else
+        return false
+    end
+end
+
+function PlayerStateService.GetClientView(player : Player | string) : Types.ClientState 
+    assert(PlayerStateService.IsLoaded(player), "PlayerStateService: failed GetClientView no session found")
+    
+    local playerData : Types.PlayerData? = PlayerStateService.GetState(player)
+    assert(playerData ~= nil, "PlayerStateService: GetClientView failed to load player data")
+
+    local clientState : Types.ClientState = {
+        currencies = playerData.currencies,
+        unlocks = playerData.unlocks,
+        inventory = playerData.inventory,
+        placements = playerData.placements,
+        discoveries = playerData.discoveries,
+        tutorial = playerData.tutorial
+    }
+
+    return clientState
+end
+
 
 function PlayerStateService.Init()
 
