@@ -39,6 +39,15 @@ local function getUserId(player : Player | string) : string
     return userId
 end
 
+-- utility: Recursively copies a table so the copy shares no nested tables with the original
+local function deepCopy<T>(original: T): T
+    local copy = {}
+    for key, value in original :: any do
+        copy[key] = if type(value) == "table" then deepCopy(value) else value
+    end
+    return (copy :: any) :: T
+end
+
 -- Builds default data for new players
 function PlayerStateService.buildDefaultData() : Types.PlayerData
     -- Iterate over all sockets to build a table setting that socket to true (unlocked) if unlock cost is 0, and false otherwise
@@ -121,12 +130,12 @@ function PlayerStateService.GetClientView(player : Player | string) : Types.Clie
     end
 
     local clientState : Types.ClientState = {
-        currencies = table.clone(playerData.currencies),
-        unlocks = table.clone(playerData.unlocks),
-        inventory = table.clone(playerData.inventory),
-        placements = table.clone(playerData.placements),
-        discoveries = table.clone(playerData.discoveries),
-        tutorial = table.clone(playerData.tutorial)
+        currencies = deepCopy(playerData.currencies),
+        unlocks = deepCopy(playerData.unlocks),
+        inventory = deepCopy(playerData.inventory),
+        placements = deepCopy(playerData.placements),
+        discoveries = deepCopy(playerData.discoveries),
+        tutorial = deepCopy(playerData.tutorial)
     }
 
     return clientState
@@ -158,6 +167,11 @@ end
 function PlayerStateService.MarkDirty(player: Player, sliceKey: string)
     local userId = getUserId(player)
     if PlayerStateService.Sessions[userId] == nil then return end  -- player already left: do nothing
+
+    if not VALID_SLICES[sliceKey] then
+        warn("PlayerStateService: Invalid slice key '" .. tostring(sliceKey) .. "' passed to MarkDirty")
+        return
+    end
 
     local set = pending[userId]
     if set then
