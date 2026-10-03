@@ -23,3 +23,5 @@ Packages/
 *.swp
 *.log
 s
+# Wally server packages (regenerated with `wally install`)
+ServerPackages/

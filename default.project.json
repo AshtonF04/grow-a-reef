@@ -2,19 +2,20 @@
   "name": "grow-a-reef",
   "tree": {
     "$className": "DataModel",
-
     "ReplicatedStorage": {
       "Shared": {
         "$path": "src/shared"
-      }
+      },
+      "$ignoreUnknownInstances": true
     },
-
     "ServerScriptService": {
       "Server": {
         "$path": "src/server"
+      },
+      "ServerPackages": {
+        "$path": "ServerPackages"
       }
     },
-
     "StarterPlayer": {
       "StarterPlayerScripts": {
         "Client": {
@@ -22,7 +23,6 @@
         }
       }
     },
-
     "Workspace": {
       "$properties": {
         "FilteringEnabled": true
