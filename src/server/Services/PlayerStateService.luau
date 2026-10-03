@@ -191,7 +191,7 @@ function PlayerStateService.MarkDirty(player: Player, sliceKey: string)
     end)
 end
 
-function PlayerStateService.Init()
+function PlayerStateService:Init()
 
 end
 
