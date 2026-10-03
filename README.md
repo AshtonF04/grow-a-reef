@@ -5,8 +5,10 @@ A cosy Roblox reef-building simulator: plant coral fragments in sockets on your 
 ## Setup
 
 1. Install [Rokit](https://github.com/rojo-rbx/rokit), then run `rokit install` in the repo root (installs Rojo, Wally, StyLua, Selene at the pinned versions).
-2. Run `rojo serve`.
-3. Open the place in Roblox Studio and press **Connect** in the Rojo plugin.
+2. Run `wally install` (installs ProfileStore into `ServerPackages/`).
+3. Run `rojo serve`.
+4. Open the place in Roblox Studio and press **Connect** in the Rojo plugin.
+5. Game Settings → Security → "Enable Studio Access to API Services" must be on so saving works in Studio (Studio uses the separate `PlayerData_Studio` store).
 
 Code in `src/` syncs into Studio. Things that only exist in the place file (plots, models) are listed in [`assets/manifest.md`](assets/manifest.md).
 
@@ -38,3 +40,21 @@ Code in `src/` syncs into Studio. Things that only exist in the place file (plot
 ## Studio-only changes
 
 Any change that only exists in the place file (models, plots, tags) must update [`assets/manifest.md`](assets/manifest.md) in the same PR.
+
+## Dev commands (Studio only)
+
+During a playtest, run these in the **server** command bar. Passing `nil` as the player means "the first player".
+
+```lua
+_G.Dev.GrantShells(nil, 100)
+_G.Dev.SetShells(nil, 0)
+_G.Dev.GrantFragment(nil, "sun_coral", 3)
+_G.Dev.UnlockAllSockets(nil)
+_G.Dev.ResetData(nil)          -- fresh account (+ starter fragment)
+_G.Dev.PrintState(nil)
+_G.Dev.PrintTransactions(10)
+_G.Dev.SetSimulateFailure(true) -- next load fails and kicks (tests the no-overwrite rule)
+_G.Dev.Call("ServiceName", "Method", ...) -- call any server service method
+```
+
+Tools that don't share `_G` (plugins, MCP) can use `game.ServerStorage._DevBridge:Invoke("GrantShells", nil, 100)`. Neither exists outside Studio.

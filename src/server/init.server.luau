@@ -3,6 +3,7 @@
 -- Require Roblox Services
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
 -- Boot-load shared configs (runs definition validation)
 require(ReplicatedStorage.Shared.Config.SocketDefinitions)
@@ -15,16 +16,38 @@ local Result = require(ReplicatedStorage.Shared.Util.Result)
 Remotes.CreateAll()
 
 -- 2. Require game services (requiring only loads them, nothing starts yet)
+local DataService = require(script.Services.DataService)
 local PlayerStateService = require(script.Services.PlayerStateService)
 local PlotService = require(script.Services.PlotService)
 
 -- 3. Init game services in dependency order
+DataService:Init()
 PlayerStateService:Init()
 PlotService:Init()
 
+-- Studio-only command-bar helpers (see README)
+if RunService:IsStudio() then
+	local DevTools = require(script.Util.DevTools)
+	-- selene: allow(global_usage)
+	local globals: any = _G
+	globals.Dev = DevTools
+
+	-- Lets Studio plugins/tools (which don't share _G) call DevTools. ServerStorage never replicates to clients.
+	local bridge = Instance.new("BindableFunction")
+	bridge.Name = "_DevBridge"
+	bridge.OnInvoke = function(fnName: string, ...)
+		return (DevTools :: any)[fnName](...)
+	end
+	bridge.Parent = game:GetService("ServerStorage")
+end
+
 -- Handler Methods
 local function onPlayerAdded(player: Player)
-	PlayerStateService.InitPlayerState(player)
+	-- Yields while the save loads; nil means the load failed and the player was already kicked
+	local data = PlayerStateService.InitPlayerState(player)
+	if data == nil then
+		return
+	end
 end
 
 local function onPlayerRemoving(player: Player)
