@@ -161,7 +161,7 @@ function HUDController.AddButton(name: string, icon: string, color: Color3?, dar
 	}, color, darkColor)
 	UIKit.new("TextLabel", {
 		BackgroundTransparency = 1,
-		Size = UDim2.new(1, 0, 0.62, 0),
+		Size = UDim2.fromScale(1, 0.62),
 		Position = UDim2.fromScale(0, 0.04),
 		Text = icon,
 		TextScaled = true,
@@ -169,7 +169,7 @@ function HUDController.AddButton(name: string, icon: string, color: Color3?, dar
 		Parent = button,
 	})
 	UIKit.label({
-		Size = UDim2.new(1, 0, 0.32, 0),
+		Size = UDim2.fromScale(1, 0.32),
 		Position = UDim2.fromScale(0, 0.64),
 		Text = name,
 		TextSize = Theme.TextSize.Body,
