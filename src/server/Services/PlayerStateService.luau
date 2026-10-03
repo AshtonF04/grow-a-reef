@@ -2,10 +2,10 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- Require custom configs and modules
-local SocketDefinitions = require(ReplicatedStorage.Shared.Config.SocketDefinitions)
 local Types = require(ReplicatedStorage.Shared.Types)
 local Remotes = require(ReplicatedStorage.Shared.Net.Remotes)
 local Signal = require(ReplicatedStorage.Shared.Util.Signal)
+local DataService = require(script.Parent.DataService)
 
 -- Define session type to store a users current session
 type Session = { data: Types.PlayerData, plotId: string?, loaded: boolean }
@@ -48,54 +48,55 @@ local function deepCopy<T>(original: T): T
     return (copy :: any) :: T
 end
 
--- Builds default data for new players
-function PlayerStateService.buildDefaultData() : Types.PlayerData
-    -- Iterate over all sockets to build a table setting that socket to true (unlocked) if unlock cost is 0, and false otherwise
-    local sockets: { [string]: boolean } = {}
-    for socketId, socket in SocketDefinitions do
-        sockets[socketId] = socket.unlockCostShells == 0
+-- Grants first-join rewards exactly once (meta.firstJoin == 0 means "never joined")
+function PlayerStateService.ApplyFirstJoin(data: Types.PlayerData)
+    if data.meta.firstJoin ~= 0 then
+        return
     end
-
-    -- Define all default player data
-    local data: Types.PlayerData = {
-        version = 1,
-        currencies = { 
-            shells = 0, 
-            pearls = 0 
-        },
-        unlocks = {
-            zone = 1,
-            sockets = sockets,
-        },
-        inventory = { 
-            fragments = { 
-                sun_coral = 1 
-            } 
-        },
-        placements = {},
-        discoveries = { corals = {}, fish = {}, traits = {} },
-        tutorial = { version = 1, step = "start", done = false },
-        meta = { firstJoin = os.time(), lastSeen = os.time() },
-    }
-    return data
+    data.meta.firstJoin = os.time()
+    data.inventory.fragments.sun_coral = 1
 end
 
--- Creates new instance of player data using buildDefaultData and creates a new session for the player
-function PlayerStateService.InitPlayerState(player: Player) : Types.PlayerData
+-- Loads the player's saved data (yields) and creates their session. Returns nil if the load failed
+-- (the player has already been kicked by DataService).
+function PlayerStateService.InitPlayerState(player: Player) : Types.PlayerData?
     local userId : string = tostring(player.UserId)
-    local defaultData: Types.PlayerData = PlayerStateService.buildDefaultData()
 
-    local newSession: Session = { data = defaultData, plotId = nil, loaded = true }
+    local result = DataService.LoadProfile(player)
+    if not result.ok then
+        return nil
+    end
+
+    -- Use the exact table ProfileStore saves, never a copy
+    local data = result.value
+    PlayerStateService.ApplyFirstJoin(data)
+
+    local newSession: Session = { data = data, plotId = nil, loaded = true }
     PlayerStateService.Sessions[userId] = newSession
 
     return newSession.data
 end
 
--- Handles removing player session and clearing pending upon leaving the game
+-- Handles releasing the profile, removing the session and clearing pending upon leaving the game.
+-- Safe to call for a player who never got a session.
 function PlayerStateService.RemovePlayer(player: Player)
     local userId = tostring(player.UserId)
+    DataService.ReleaseProfile(player)
     PlayerStateService.Sessions[userId] = nil
     pending[userId] = nil
+end
+
+-- Stores which plot the player owns in their session
+function PlayerStateService.SetPlotId(player: Player, plotId: string?)
+    local session = PlayerStateService.Sessions[getUserId(player)]
+    if session then
+        session.plotId = plotId
+    end
+end
+
+function PlayerStateService.GetPlotId(player: Player): string?
+    local session = PlayerStateService.Sessions[getUserId(player)]
+    return if session then session.plotId else nil
 end
 
 -- Gets a players full state for the server and returns it
