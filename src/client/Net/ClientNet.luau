@@ -1,10 +1,14 @@
 --!strict
 -- The one place the client calls the server. Every call is pcall-wrapped and always returns a Result.
+-- Every failure shows an error toast with the friendly ErrorMessages text (M5-01), except RateLimited and
+-- the client_ready handshake, which retries quietly while the server is still loading.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local ErrorMessages = require(ReplicatedStorage.Shared.Config.ErrorMessages)
 local Remotes = require(ReplicatedStorage.Shared.Net.Remotes)
 local Types = require(ReplicatedStorage.Shared.Types)
 local Result = require(ReplicatedStorage.Shared.Util.Result)
+local Toast = require(script.Parent.Parent.UI.Toast)
 
 type Result<T> = Types.Result<T>
 
@@ -12,13 +16,21 @@ local MAX_READY_ATTEMPTS = 5
 
 local ClientNet = {}
 
-local function invoke(name: string, ...: any): Result<any>
+local function rawInvoke(name: string, ...: any): Result<any>
 	local args = table.pack(...)
 	local ok, result = pcall(function()
 		return Remotes.GetFunction(name):InvokeServer(table.unpack(args, 1, args.n))
 	end)
 	if not ok or type(result) ~= "table" or type(result.ok) ~= "boolean" then
 		return Result.error("Internal")
+	end
+	return result
+end
+
+local function invoke(name: string, ...: any): Result<any>
+	local result = rawInvoke(name, ...)
+	if not result.ok and not ErrorMessages.IsSilent(result.err) then
+		Toast.Error(ErrorMessages.Get(result.err))
 	end
 	return result
 end
@@ -48,13 +60,14 @@ end
 function ClientNet.ClientReady(): Result<boolean>
 	local last: Result<boolean> = Result.error("Internal")
 	for attempt = 1, MAX_READY_ATTEMPTS do
-		last = invoke("client_ready")
+		last = rawInvoke("client_ready")
 		if last.ok then
 			return last
 		end
 		task.wait(attempt * 0.5)
 	end
 	warn("ClientNet: could not load player state after " .. MAX_READY_ATTEMPTS .. " attempts")
+	Toast.Error(ErrorMessages.Get((last :: any).err))
 	return last
 end
 

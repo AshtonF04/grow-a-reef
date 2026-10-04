@@ -13,6 +13,7 @@ local StateController = require(script.Parent.StateController)
 local Theme = require(script.Parent.Parent.UI.Theme)
 local UIKit = require(script.Parent.Parent.UI.UIKit)
 local CoralIcon = require(script.Parent.Parent.UI.CoralIcon)
+local Toast = require(script.Parent.Parent.UI.Toast)
 
 type FragmentEntry = { coralId: string, price: number }
 
@@ -171,8 +172,7 @@ function ShopController.Refresh()
 	end
 	local result = ClientNet.GetCatalog()
 	if not result.ok then
-		warn("ShopController: catalog failed: " .. tostring(result.err))
-		return
+		return -- ClientNet already showed the error toast
 	end
 	catalog = result.value.fragments
 	for _, child in list:GetChildren() do
@@ -204,8 +204,8 @@ function ShopController.Buy(coralId: string)
 	busy = true
 	local result = ClientNet.BuyFragment(coralId, 1)
 	busy = false
-	if not result.ok then
-		warn("ShopController: buy failed: " .. tostring(result.err))
+	if result.ok then
+		Toast.Success(("+1 %s fragment"):format(CoralDefinitions[coralId].displayName))
 	end
 end
 

@@ -14,6 +14,7 @@ local ClientNet = require(script.Parent.Parent.Net.ClientNet)
 local StateController = require(script.Parent.StateController)
 local Theme = require(script.Parent.Parent.UI.Theme)
 local UIKit = require(script.Parent.Parent.UI.UIKit)
+local Toast = require(script.Parent.Parent.UI.Toast)
 
 local SocketPopupController = {}
 
@@ -243,9 +244,9 @@ function SocketPopupController.Purchase()
 	busy = false
 	if result.ok then
 		SocketPopupController.Close()
+		Toast.Success(("%s unlocked!"):format(SocketDefinitions[socketId].displayName))
 	else
-		warn("SocketPopupController: unlock failed: " .. tostring(result.err))
-		SocketPopupController.Refresh()
+		SocketPopupController.Refresh() -- ClientNet already showed why in an error toast
 		r.status.Text = "Couldn't unlock, try again"
 	end
 end
