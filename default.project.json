@@ -99,6 +99,9 @@
       "$ignoreUnknownInstances": true,
       "WorldGen": {
         "$path": "tools/worldgen"
+      },
+      "Tests": {
+        "$path": "tests"
       }
     }
   }
