@@ -1,7 +1,9 @@
 --!strict
 -- Cosmetic underwater life, client-only: kelp sway (models tagged "Kelp") and schools of low-poly fish.
 -- One shared 20 Hz loop; kelp only animates near the camera so cost stays flat as the map grows.
+-- Fish are AI-generated meshes from ReplicatedStorage/Assets/Fish (head facing -Z); Part fish are the fallback.
 local CollectionService = game:GetService("CollectionService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 
 local AmbientController = {}
@@ -52,7 +54,24 @@ local function part(props: { [string]: any }, className: string?): BasePart
 	return p
 end
 
-local function makeFish(parent: Instance): Model
+local function fishTemplates(): { Model }
+	local assets = ReplicatedStorage:FindFirstChild("Assets")
+	local folder = assets and assets:FindFirstChild("Fish")
+	local templates = {}
+	if folder then
+		for _, m in folder:GetChildren() do
+			if m:IsA("Model") and m.PrimaryPart then
+				table.insert(templates, m)
+			end
+		end
+	end
+	if #templates == 0 then
+		warn("AmbientController: no fish in Assets/Fish, using Part fish")
+	end
+	return templates
+end
+
+local function makePartFish(parent: Instance): Model
 	local colors = FISH_COLORS[math.random(1, #FISH_COLORS)]
 	local s = 0.8 + math.random() * 0.8
 	local m = Instance.new("Model")
@@ -69,7 +88,18 @@ local function makeFish(parent: Instance): Model
 	return m
 end
 
+local function makeFish(parent: Instance, templates: { Model }): Model
+	if #templates == 0 then
+		return makePartFish(parent)
+	end
+	local m = templates[math.random(1, #templates)]:Clone()
+	m:ScaleTo(0.8 + math.random() * 0.8)
+	m.Parent = parent
+	return m
+end
+
 local function spawnFish(folder: Folder)
+	local templates = fishTemplates()
 	local plots = workspace:FindFirstChild("PlayerPlots")
 	local centres = { Vector3.zero }
 	if plots then
@@ -82,7 +112,7 @@ local function spawnFish(folder: Folder)
 	for i = 1, FISH_COUNT do
 		local centre = centres[(i % #centres) + 1]
 		table.insert(fishes, {
-			model = makeFish(folder),
+			model = makeFish(folder, templates),
 			centre = centre + Vector3.new(math.random(-20, 20), 0, math.random(-20, 20)),
 			radius = 10 + math.random() * 25,
 			height = 9 + math.random() * 16,
