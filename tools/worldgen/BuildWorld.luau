@@ -2,7 +2,10 @@
 -- Builds the whole underwater map: seafloor, hub, boundary, and the 6 player plots (M2-01).
 -- Re-runnable: destroys and rebuilds Workspace.World and Workspace.PlayerPlots.
 -- Run in Edit mode from the command bar: local f = game.ServerStorage.WorldGen:Clone() f.Parent = game.ServerStorage require(f.BuildWorld) f:Destroy()
+-- Needs the AI mesh templates in ServerStorage/WorldAssets (imported with ImportMesh.luau, see assets/manifest.md).
 local Lib = require(script.Parent.Lib)
+
+assert(game:GetService("ServerStorage"):FindFirstChild("WorldAssets"), "BuildWorld: ServerStorage.WorldAssets is missing")
 
 local P = Lib.Palette
 local R = Lib.R
@@ -131,22 +134,12 @@ for i = 1, 70 do
 	local a = i / 70 * math.pi * 2 + R(-0.03, 0.03)
 	local r = BOUNDARY_RADIUS + R(-6, 10)
 	local base = Vector3.new(math.cos(a) * r, 0, math.sin(a) * r)
-	local spire = Lib.Model("Spire", boundary)
-	local spireColor = Lib.Pick(P.Rocks)
-	-- Fixed chunk count: shrinking chunks converge in height, so a "while y < h" loop could never end
-	local y = 0
-	local w = R(12, 18)
-	for _ = 1, math.floor(R(3, 7)) do
-		Lib.Part({
-			Name = "Chunk",
-			Size = Vector3.new(w, w * 0.8, w),
-			CFrame = CFrame.new(base + Vector3.new(R(-1.5, 1.5), y + w * 0.4, R(-1.5, 1.5)))
-				* CFrame.Angles(R(-0.3, 0.3), R(0, 6.28), R(-0.3, 0.3)),
-			Color = spireColor:Lerp(Color3.new(1, 1, 1), R(0, 0.12)),
-			Parent = spire,
-		})
-		y += w * 0.6
-		w *= 0.78
+	local spire = Lib.Mesh("RockSpire", boundary, Lib.Jitter(base - Vector3.new(0, 2, 0), 0.06), R(28, 48), true) :: Model
+	spire.Name = "Spire"
+	-- A couple of boulders round the foot so it doesn't look stuck into the sand
+	for _ = 1, 2 do
+		local footAngle = R(0, math.pi * 2)
+		Lib.Rock(spire, base + Vector3.new(math.cos(footAngle) * 9, 2, math.sin(footAngle) * 9), R(5, 9))
 	end
 	if i % 2 == 0 then
 		Lib.Kelp(boundary, base + Vector3.new(-math.cos(a) * 14, 0, -math.sin(a) * 14), R(20, 34))
@@ -185,47 +178,19 @@ Lib.Part({
 -- Ring of stepping stones around the plaza
 for i = 1, 24 do
 	local a = i / 24 * math.pi * 2
-	Lib.Part({
-		Name = "Stone",
-		Size = Vector3.new(4, 0.8, 3),
-		CFrame = CFrame.new(math.cos(a) * 30, 0.4, math.sin(a) * 30) * CFrame.Angles(0, -a + R(-0.2, 0.2), 0),
-		Color = Lib.Pick(P.Rocks),
-		Parent = hub,
-	})
+	local stone = Lib.Mesh("SteppingStone", hub, CFrame.new(math.cos(a) * 30, -0.15, math.sin(a) * 30) * CFrame.Angles(0, -a + R(-0.2, 0.2), 0), 1, true) :: Model
+	stone.Name = "Stone"
 end
 
--- Giant clam
-local clam = Lib.Model("GiantClam", hub)
-Lib.Part({
-	Name = "BottomShell",
-	Shape = Enum.PartType.Ball,
-	Size = Vector3.new(16, 7, 14),
-	CFrame = CFrame.new(0, 1, 0),
-	Color = Color3.fromRGB(176, 140, 214),
-	Parent = clam,
-})
-Lib.Part({
-	Name = "TopShell",
-	Shape = Enum.PartType.Ball,
-	Size = Vector3.new(16, 6, 14),
-	CFrame = CFrame.new(0, 6.5, 4.5) * CFrame.Angles(math.rad(-55), 0, 0),
-	Color = Color3.fromRGB(196, 160, 232),
-	Parent = clam,
-})
-for i = -3, 3 do
-	Lib.Decor({
-		Name = "Ridge",
-		Size = Vector3.new(0.6, 0.5, 13),
-		CFrame = CFrame.new(0, 6.5, 4.5) * CFrame.Angles(math.rad(-55), 0, 0) * CFrame.new(i * 2, 3, 0),
-		Color = Color3.fromRGB(150, 110, 196),
-		Parent = clam,
-	})
-end
+-- Giant clam: mesh opens toward -Z with its inner floor at 0.76 of 7 studs; the pearl sits in that cradle
+local CLAM_HEIGHT = 14
+local clam = Lib.Mesh("GiantClam", hub, CFrame.new(0, -0.3, 0), CLAM_HEIGHT, true) :: Model
+local clamScale = CLAM_HEIGHT / 7
 local pearl = Lib.Part({
 	Name = "Pearl",
 	Shape = Enum.PartType.Ball,
-	Size = Vector3.new(4.5, 4.5, 4.5),
-	CFrame = CFrame.new(0, 5.2, -0.5),
+	Size = Vector3.one * 2.2 * clamScale,
+	CFrame = CFrame.new(0, -0.3 + (0.76 + 1.1) * clamScale, -0.3 * clamScale),
 	Color = Color3.fromRGB(255, 250, 240),
 	Material = Enum.Material.Neon,
 	Parent = clam,
@@ -236,25 +201,19 @@ glow.Range = 22
 glow.Brightness = 1.5
 glow.Parent = pearl
 
--- Rock arch over the north entrance of the plaza
-local arch = Lib.Model("Arch", hub)
-for _, x in { -11, 11 } do
-	for j = 0, 4 do
-		Lib.Part({
-			Name = "Pillar",
-			Size = Vector3.new(6 - j * 0.5, 5, 6 - j * 0.5),
-			CFrame = CFrame.new(x - math.sign(x) * j * 0.8, 2.5 + j * 4.2, -26) * CFrame.Angles(R(-0.2, 0.2), R(0, 6), R(-0.2, 0.2)),
-			Color = Lib.Pick(P.Rocks),
-			Parent = arch,
-		})
-	end
-end
-for x = -8, 8, 4 do
+-- Rock arch over the north entrance of the plaza. The mesh is decor; invisible boxes give its legs collision
+-- (mesh collision would risk filling the walkway).
+local ARCH_HEIGHT = 20
+local arch = Lib.Mesh("RockArch", hub, CFrame.new(0, -0.5, -26), ARCH_HEIGHT) :: Model
+arch.Name = "Arch"
+local archScale = ARCH_HEIGHT / 8.85
+for _, side in { -1, 1 } do
 	Lib.Part({
-		Name = "Top",
-		Size = Vector3.new(6, 4.5, 6),
-		CFrame = CFrame.new(x, 22 - math.abs(x) * 0.25, -26) * CFrame.Angles(R(-0.3, 0.3), R(0, 6), R(-0.3, 0.3)),
-		Color = Lib.Pick(P.Rocks),
+		Name = "LegCollider",
+		Size = Vector3.new(3 * archScale, ARCH_HEIGHT * 0.8, 4 * archScale),
+		CFrame = CFrame.new(side * (10.19 / 2 - 1.5) * archScale, ARCH_HEIGHT * 0.4, -26),
+		Transparency = 1,
+		CastShadow = false,
 		Parent = arch,
 	})
 end
@@ -275,6 +234,14 @@ plotsFolder.Name = "PlayerPlots"
 plotsFolder.Parent = workspace
 
 local TOP = BASE_HEIGHT
+
+-- Round boulder only (Lib.Rock sometimes picks a wide slab): predictable width beside sockets, so rocks never
+-- clip the coral spot. `position` is the rock's centre, like Lib.Rock.
+local function boulder(parent: Instance, position: Vector3, size: number): Model
+	local m = Lib.Mesh("RockA", parent, Lib.Jitter(position - Vector3.new(0, size * 0.45, 0), 0.1), size * 0.9, true) :: Model
+	m.Name = "Rock"
+	return m
+end
 
 local function buildSocket(plot: Model, cf: CFrame, socketId: string, layout)
 	local top = TOP + (layout.ledge and layout.pos.Y or 0)
@@ -316,13 +283,8 @@ local function buildSocket(plot: Model, cf: CFrame, socketId: string, layout)
 	for i = 1, 10 do
 		local a = i / 10 * math.pi * 2
 		local p = (centre * CFrame.new(math.cos(a) * 3.4, 0.3, math.sin(a) * 3.4)).Position
-		Lib.Decor({
-			Name = "Pebble",
-			Size = Vector3.new(1.3, 1, 1.2),
-			CFrame = CFrame.new(p) * CFrame.Angles(R(-0.4, 0.4), R(0, 6), R(-0.4, 0.4)),
-			Color = Lib.Pick(P.Rocks),
-			Parent = deco,
-		})
+		local pebble = Lib.Mesh("RockA", deco, Lib.Jitter(p - Vector3.new(0, 0.45, 0), 0.3), R(0.7, 1)) :: Model
+		pebble.Name = "Pebble"
 	end
 
 	-- Name, habitat and lock state are client billboards (WorldLabelController), not parts
@@ -334,16 +296,16 @@ local function buildSocket(plot: Model, cf: CFrame, socketId: string, layout)
 			Lib.Kelp(deco, (centre * CFrame.new(math.cos(a) * 6.5, 0, math.sin(a) * 6.5)).Position, R(10, 18))
 		end
 	elseif layout.channel then
-		for _, x in { -5, 5 } do
+		for _, x in { -5.5, 5.5 } do
 			for z = -6, 6, 4 do
-				Lib.Rock(deco, (centre * CFrame.new(x + R(-0.5, 0.5), 1.2, z)).Position, R(3.5, 5))
+				boulder(deco, (centre * CFrame.new(x + R(-0.3, 0.3), 1.2, z)).Position, R(3.5, 5))
 			end
 		end
 		Lib.BubbleVent(deco, (centre * CFrame.new(0, 0, 7)).Position)
 	elseif layout.crevice then
-		for _, x in { -5.5, 5.5 } do
-			Lib.Rock(deco, (centre * CFrame.new(x, 3, 1)).Position, 7)
-			Lib.Rock(deco, (centre * CFrame.new(x * 0.8, 7, 2)).Position, 5)
+		for _, x in { -6.3, 6.3 } do
+			boulder(deco, (centre * CFrame.new(x, 3, 1)).Position, 7)
+			boulder(deco, (centre * CFrame.new(x * 0.95, 7, 2)).Position, 5)
 		end
 	end
 	return socket
@@ -402,32 +364,21 @@ local function buildPlot(index: number, centre: Vector3)
 
 	-- Dim corner: rock overhang roof on pillars over the right-back quadrant
 	local overhang = Lib.Model("Overhang", plot)
-	local overhangColor = P.Rocks[4]
 	for _, p in { Vector3.new(28, 0, 28), Vector3.new(28, 0, 2), Vector3.new(2, 0, 28) } do
-		for j = 0, 3 do
-			Lib.Part({
-				Name = "Pillar",
-				Size = Vector3.new(4.5, 3.6, 4.5),
-				CFrame = cf * CFrame.new(p.X, TOP + 1.8 + j * 3.2, p.Z) * CFrame.Angles(R(-0.2, 0.2), R(0, 6), R(-0.2, 0.2)),
-				Color = overhangColor:Lerp(Color3.new(0, 0, 0), R(0, 0.15)),
-				Parent = overhang,
-			})
-		end
+		local pillarCf = Lib.Jitter((cf * CFrame.new(p.X, TOP - 0.5, p.Z)).Position, 0.04)
+		local pillar = Lib.Mesh("RockSpire", overhang, pillarCf, 14.5, true) :: Model
+		pillar.Name = "Pillar"
 	end
 	for x = 6, 27, 7 do
 		for z = 6, 27, 7 do
-			Lib.Part({
-				Name = "Roof",
-				Size = Vector3.new(8.5, 3, 8.5),
-				CFrame = cf * CFrame.new(x, TOP + 13.5 + R(-0.5, 0.5), z) * CFrame.Angles(R(-0.12, 0.12), R(0, 6), R(-0.12, 0.12)),
-				Color = overhangColor:Lerp(Color3.new(1, 1, 1), R(0, 0.1)),
-				Parent = overhang,
-			})
+			local slabCf = cf * CFrame.new(x, TOP + 12 + R(-0.4, 0.4), z) * CFrame.Angles(R(-0.08, 0.08), R(0, 6), R(-0.08, 0.08))
+			local slab = Lib.Mesh("RockSlab", overhang, slabCf, 3.2, true) :: Model
+			slab.Name = "Roof"
 		end
 	end
 	-- Hanging kelp/coral under the overhang edge
 	for _ = 1, 4 do
-		Lib.FanCoral(overhang, (cf * CFrame.new(R(6, 26), TOP + 11.5, R(6, 26))).Position, 0.6)
+		Lib.FanCoral(overhang, (cf * CFrame.new(R(6, 26), TOP + 12.2, R(6, 26))).Position, 0.6, true)
 	end
 
 	-- Sockets

@@ -2,9 +2,11 @@
 -- Shared low-poly building helpers for the worldgen scripts.
 -- Rojo syncs them to ServerStorage.WorldGen (never runs on its own, never replicates). Run in Edit mode via the command bar or MCP
 -- execute_luau; they build Studio-only content listed in assets/manifest.md.
--- Style: chunky SmoothPlastic parts, random rotations for faceted "low poly" rocks, saturated flat colours.
+-- Style: AI-generated low-poly mesh templates in ServerStorage/WorldAssets (see ImportMesh.luau), cloned and
+-- scaled by Lib.Mesh. Each asset function falls back to the old chunky-Part build when its template is missing.
 
 local CollectionService = game:GetService("CollectionService")
+local ServerStorage = game:GetService("ServerStorage")
 
 local Lib = {}
 
@@ -86,12 +88,90 @@ function Lib.Tag(inst: Instance, tag: string)
 	CollectionService:AddTag(inst, tag)
 end
 
+local templateHeights: { [string]: number } = {}
+
+local function meshParts(m: Model): { BasePart }
+	local list = {}
+	for _, d in m:GetDescendants() do
+		if d:IsA("BasePart") and d ~= m.PrimaryPart then
+			table.insert(list, d)
+		end
+	end
+	return list
+end
+
+-- Height of a template's meshes, ignoring its Root marker (which pokes 0.1 below the base)
+local function templateHeight(name: string, template: Model): number
+	local h = templateHeights[name]
+	if h == nil then
+		local probe = template:Clone()
+		local root = probe.PrimaryPart
+		probe.PrimaryPart = nil
+		if root then
+			root:Destroy()
+		end
+		h = probe:GetExtentsSize().Y
+		probe:Destroy()
+		templateHeights[name] = h
+	end
+	return h
+end
+
+-- Clones ServerStorage/WorldAssets/<name>, scaled uniformly to `height` studs tall, with the base centre at `cf`.
+-- Templates are non-collide; `collide` turns collision (and tap raycasts) on. Returns nil if the template is missing.
+function Lib.Mesh(name: string, parent: Instance, cf: CFrame, height: number, collide: boolean?): Model?
+	local folder = ServerStorage:FindFirstChild("WorldAssets")
+	local template = folder and folder:FindFirstChild(name)
+	if template == nil then
+		return nil
+	end
+	local m = template:Clone()
+	m:ScaleTo(height / templateHeight(name, template))
+	m:PivotTo(cf)
+	if collide then
+		for _, part in meshParts(m) do
+			part.CanCollide = true
+			part.CanQuery = true
+		end
+	end
+	m.Parent = parent
+	return m
+end
+
+-- Stretches a placed mesh model vertically about its base (keeps low-poly meshes slim when scaled up)
+function Lib.StretchY(m: Model, factor: number)
+	local base = m:GetPivot()
+	for _, part in meshParts(m) do
+		local rel = base:ToObjectSpace(part.CFrame)
+		part.Size = Vector3.new(part.Size.X, part.Size.Y * factor, part.Size.Z)
+		part.CFrame = base * (CFrame.new(rel.X, rel.Y * factor, rel.Z) * rel.Rotation)
+	end
+end
+
+-- Random yaw with a little tilt, so repeated templates don't look stamped
+function Lib.Jitter(position: Vector3, tilt: number?): CFrame
+	local t = tilt or 0.08
+	return CFrame.new(position) * CFrame.Angles(Lib.R(-t, t), Lib.R(0, math.pi * 2), Lib.R(-t, t))
+end
+
 local function randomRot(): CFrame
 	return CFrame.Angles(Lib.R(-0.5, 0.5), Lib.R(0, math.pi * 2), Lib.R(-0.5, 0.5))
 end
 
 -- Faceted boulder: a few randomly rotated blocks/wedges overlapping, partially buried
 function Lib.Rock(parent: Instance, position: Vector3, size: number, color: Color3?, collide: boolean?): Model
+	-- Mesh: mostly round boulders, some flat slabs; `position` is the rock's centre, so sink the base below it
+	local roll = Lib.R(0, 1)
+	local name, height = "RockA", size * 0.9
+	if roll > 0.8 then
+		name, height = "RockSlab", size * 0.55
+	end
+	local mesh = Lib.Mesh(name, parent, Lib.Jitter(position - Vector3.new(0, size * 0.45, 0), 0.15), height, collide ~= false)
+	if mesh then
+		mesh.Name = "Rock"
+		return mesh
+	end
+
 	local m = Lib.Model("Rock", parent)
 	local base = color or Lib.Pick(Lib.Palette.Rocks)
 	local chunks = math.clamp(math.floor(size / 2.5), 2, 5)
@@ -116,6 +196,16 @@ end
 
 -- Kelp: a twisting ribbon of leaf segments on a thin stem. Tagged "Kelp" for client sway.
 function Lib.Kelp(parent: Instance, position: Vector3, height: number): Model
+	-- Mesh keeps its Root PrimaryPart, so AmbientController sways it around the base. Scaled to 60% then
+	-- stretched so tall kelp stays slim.
+	local mesh = Lib.Mesh("Kelp", parent, Lib.Jitter(position, 0.05), height * 0.6)
+	if mesh then
+		Lib.StretchY(mesh, 1 / 0.6)
+		mesh.Name = "Kelp"
+		Lib.Tag(mesh, "Kelp")
+		return mesh
+	end
+
 	local m = Lib.Model("Kelp", parent)
 	local color = Lib.Pick(Lib.Palette.Kelp)
 	local segments = math.max(2, math.floor(height / 2.4))
@@ -148,6 +238,10 @@ end
 -- Tube coral cluster (static decoration, not a growable coral)
 function Lib.TubeCoral(parent: Instance, position: Vector3, scale: number?): Model
 	local k = scale or 1
+	local mesh = Lib.Mesh("TubeCoral", parent, Lib.Jitter(position), 3 * k * Lib.R(0.85, 1.15))
+	if mesh then
+		return mesh
+	end
 	local m = Lib.Model("TubeCoral", parent)
 	local color = Lib.Pick(Lib.Palette.Corals)
 	local h, s, v = color:ToHSV()
@@ -176,9 +270,17 @@ function Lib.TubeCoral(parent: Instance, position: Vector3, scale: number?): Mod
 	return m
 end
 
--- Fan coral: a flat, wavy fan on a short stalk
-function Lib.FanCoral(parent: Instance, position: Vector3, scale: number?): Model
+-- Fan coral: a flat, wavy fan on a short stalk. `hanging` flips it to grow down from a ceiling at `position`.
+function Lib.FanCoral(parent: Instance, position: Vector3, scale: number?, hanging: boolean?): Model
 	local k = scale or 1
+	local cf = Lib.Jitter(position)
+	if hanging then
+		cf *= CFrame.Angles(math.pi, 0, 0)
+	end
+	local mesh = Lib.Mesh("FanCoral", parent, cf, 3.8 * k * Lib.R(0.9, 1.1))
+	if mesh then
+		return mesh
+	end
 	local m = Lib.Model("FanCoral", parent)
 	local color = Lib.Pick(Lib.Palette.Corals)
 	local yaw = Lib.R(0, math.pi * 2)
@@ -200,6 +302,10 @@ end
 
 -- Anemone: squat base with a crown of balls
 function Lib.Anemone(parent: Instance, position: Vector3): Model
+	local mesh = Lib.Mesh("Anemone", parent, Lib.Jitter(position), Lib.R(1.4, 2.2))
+	if mesh then
+		return mesh
+	end
 	local m = Lib.Model("Anemone", parent)
 	local color = Lib.Pick(Lib.Palette.Corals)
 	Lib.Decor({
@@ -226,6 +332,10 @@ function Lib.Anemone(parent: Instance, position: Vector3): Model
 end
 
 function Lib.Starfish(parent: Instance, position: Vector3): Model
+	local mesh = Lib.Mesh("Starfish", parent, Lib.Jitter(position, 0.05), Lib.R(0.6, 0.9))
+	if mesh then
+		return mesh
+	end
 	local m = Lib.Model("Starfish", parent)
 	local color = Lib.Pick({ Color3.fromRGB(255, 120, 70), Color3.fromRGB(255, 90, 120), Color3.fromRGB(255, 190, 70) })
 	local yaw = Lib.R(0, math.pi * 2)
@@ -243,7 +353,11 @@ function Lib.Starfish(parent: Instance, position: Vector3): Model
 	return m
 end
 
-function Lib.Seashell(parent: Instance, position: Vector3): BasePart
+function Lib.Seashell(parent: Instance, position: Vector3): Instance
+	local mesh = Lib.Mesh("Seashell", parent, Lib.Jitter(position, 0.2), Lib.R(0.6, 0.9))
+	if mesh then
+		return mesh
+	end
 	return Lib.Decor({
 		Name = "Seashell",
 		Shape = Enum.PartType.Ball,
@@ -257,6 +371,15 @@ end
 -- Patch of short sea grass blades
 function Lib.SeaGrass(parent: Instance, position: Vector3, radius: number)
 	local m = Lib.Model("SeaGrass", parent)
+	for _ = 1, math.max(2, math.floor(radius)) do
+		local p = position + Vector3.new(Lib.R(-radius, radius), 0, Lib.R(-radius, radius)) * 0.7
+		if Lib.Mesh("SeaGrass", m, Lib.Jitter(p, 0.12), Lib.R(1.2, 2.2)) == nil then
+			break
+		end
+	end
+	if #m:GetChildren() > 0 then
+		return m
+	end
 	for _ = 1, 10 do
 		local p = position + Vector3.new(Lib.R(-radius, radius), 0, Lib.R(-radius, radius))
 		local h = Lib.R(0.8, 2)
@@ -274,11 +397,14 @@ end
 
 -- Rising bubble stream from a small vent rock
 function Lib.BubbleVent(parent: Instance, position: Vector3)
-	local rock = Lib.Rock(parent, position, 2.2)
+	local ventHeight = 2.4
+	local rock: Model = Lib.Mesh("VentChimney", parent, Lib.Jitter(position, 0.05), ventHeight, true)
+		or Lib.Rock(parent, position, 2.2)
+	rock.Name = "BubbleVent"
 	local emitterPart = Lib.Decor({
 		Name = "BubbleSource",
 		Size = Vector3.new(1, 0.2, 1),
-		CFrame = CFrame.new(position + Vector3.new(0, 1, 0)),
+		CFrame = CFrame.new(position + Vector3.new(0, ventHeight, 0)),
 		Transparency = 1,
 		Parent = rock,
 	})
@@ -299,25 +425,10 @@ function Lib.BubbleVent(parent: Instance, position: Vector3)
 end
 
 -- Wooden signpost with a SurfaceGui label on both faces
-function Lib.Sign(parent: Instance, cf: CFrame, text: string, width: number?, name: string?): Model
-	local w = width or 8
-	local m = Lib.Model(name or "Sign", parent)
-	for _, x in { -w / 2 + 0.6, w / 2 - 0.6 } do
-		Lib.Part({
-			Name = "Post",
-			Size = Vector3.new(0.6, 5, 0.6),
-			CFrame = cf * CFrame.new(x, 2.5, 0),
-			Color = Lib.Palette.WoodDark,
-			Parent = m,
-		})
-	end
-	local board = Lib.Part({
-		Name = "Board",
-		Size = Vector3.new(w, 2.4, 0.5),
-		CFrame = cf * CFrame.new(0, 4.4, 0),
-		Color = Lib.Palette.Wood,
-		Parent = m,
-	})
+-- WoodSign template measurements (yaw 0): 4.86 wide, 5.12 tall, plank board from y 2.4 to 4.8, faces -Z
+local SIGN_MESH = { width = 4.86, height = 5.12, depth = 1.5, boardY = 3.6, boardH = 2.4 }
+
+local function addLabels(board: BasePart, text: string)
 	for _, face in { Enum.NormalId.Front, Enum.NormalId.Back } do
 		local gui = Instance.new("SurfaceGui")
 		gui.Name = "Label" .. face.Name
@@ -346,6 +457,52 @@ function Lib.Sign(parent: Instance, cf: CFrame, text: string, width: number?, na
 		label.Parent = gui
 		gui.Parent = board
 	end
+end
+
+function Lib.Sign(parent: Instance, cf: CFrame, text: string, width: number?, name: string?): Model
+	local w = width or 8
+	-- Mesh: stretched to the requested width (meshes stretch fine non-uniformly); the text lives on an
+	-- invisible board just proud of the plank on both faces
+	local sx, sy, sz = w / SIGN_MESH.width, 1.2, 1.4
+	local mesh = Lib.Mesh("WoodSign", parent, cf, SIGN_MESH.height)
+	if mesh then
+		mesh.Name = name or "Sign"
+		for _, part in meshParts(mesh) do
+			local rel = cf:ToObjectSpace(part.CFrame)
+			part.Size = Vector3.new(part.Size.X * sx, part.Size.Y * sy, part.Size.Z * sz)
+			part.CFrame = cf * (CFrame.new(rel.X * sx, rel.Y * sy, rel.Z * sz) * rel.Rotation)
+			part.CanCollide = true
+		end
+		local board = Lib.Decor({
+			Name = "Board",
+			Size = Vector3.new(w * 0.88, SIGN_MESH.boardH * sy * 0.9, SIGN_MESH.depth * sz),
+			CFrame = cf * CFrame.new(0, SIGN_MESH.boardY * sy, 0),
+			Transparency = 1,
+			CastShadow = false,
+			Parent = mesh,
+		})
+		addLabels(board, text)
+		return mesh
+	end
+
+	local m = Lib.Model(name or "Sign", parent)
+	for _, x in { -w / 2 + 0.6, w / 2 - 0.6 } do
+		Lib.Part({
+			Name = "Post",
+			Size = Vector3.new(0.6, 5, 0.6),
+			CFrame = cf * CFrame.new(x, 2.5, 0),
+			Color = Lib.Palette.WoodDark,
+			Parent = m,
+		})
+	end
+	local board = Lib.Part({
+		Name = "Board",
+		Size = Vector3.new(w, 2.4, 0.5),
+		CFrame = cf * CFrame.new(0, 4.4, 0),
+		Color = Lib.Palette.Wood,
+		Parent = m,
+	})
+	addLabels(board, text)
 	m.PrimaryPart = board
 	return m
 end

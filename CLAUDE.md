@@ -48,4 +48,5 @@ Studio-only content (plots, world, coral meshes) is documented in `assets/manife
 - Open tickets: KAN-26 (M1 gate: two-server session-lock test + merge/tag), KAN-33 (M2 gate: multi-player/overflow test), KAN-52 (tuned economy values need both devs' review), KAN-53 (M4 gate: 390×844 phone emulator check).
 - Economy tuned by EconomySim to 20.2 min for all six sockets (Sun 120s/12, sockets 10/40/50/90/110).
 - To do manually: set Max Players to 6 in Game Settings.
+- World map rebuilt from AI low-poly mesh templates (`ServerStorage/WorldAssets`, see manifest); no Jira ticket yet. Never set `CollisionFidelity = PreciseConvexDecomposition` from a script: it crashed Studio.
 - The Glow trait (M6-04) can't use `CoralTip` tags now that each coral is a single mesh, so it needs another approach.
