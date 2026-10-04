@@ -4,9 +4,6 @@
 -- Run in Edit mode from the command bar: local f = game.ServerStorage.WorldGen:Clone() f.Parent = game.ServerStorage require(f.BuildWorld) f:Destroy()
 local Lib = require(script.Parent.Lib)
 
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local SocketDefinitions = require(ReplicatedStorage.Shared.Config.SocketDefinitions)
-
 local P = Lib.Palette
 local R = Lib.R
 
@@ -28,8 +25,6 @@ local SOCKET_LAYOUT = {
 	deep_nook = { pos = Vector3.new(9, 0, 21) },
 }
 
-local LIGHT_ICON = { Bright = "☀️ Bright", Dim = "🌙 Dim" }
-local FLOW_ICON = { Low = "〰️ Low flow", Medium = "🌊 Medium flow", High = "💨 High flow" }
 
 ------------------------------------------------------------------------------------------------
 -- Clean up previous builds and prototype leftovers
@@ -282,7 +277,6 @@ plotsFolder.Parent = workspace
 local TOP = BASE_HEIGHT
 
 local function buildSocket(plot: Model, cf: CFrame, socketId: string, layout)
-	local def = SocketDefinitions[socketId]
 	local top = TOP + (layout.ledge and layout.pos.Y or 0)
 	local centre = cf * CFrame.new(layout.pos.X, top, layout.pos.Z)
 	local deco = Lib.Model(socketId .. "_Decor", plot)
@@ -331,52 +325,7 @@ local function buildSocket(plot: Model, cf: CFrame, socketId: string, layout)
 		})
 	end
 
-	-- Info tablet in front of the socket: light + flow (the strategy hint)
-	local tablet = Lib.Part({
-		Name = "Tablet",
-		Size = Vector3.new(3.6, 2, 0.4),
-		CFrame = centre * CFrame.new(0, 1, -4.6) * CFrame.Angles(math.rad(-15), 0, 0),
-		Color = Color3.fromRGB(230, 218, 196),
-		CanCollide = false,
-		Parent = deco,
-	})
-	local gui = Instance.new("SurfaceGui")
-	gui.Face = Enum.NormalId.Front
-	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-	gui.PixelsPerStud = 50
-	gui.LightInfluence = 0.3
-	local list = Instance.new("UIListLayout")
-	list.HorizontalAlignment = Enum.HorizontalAlignment.Center
-	list.VerticalAlignment = Enum.VerticalAlignment.Center
-	list.Parent = gui
-	for i, text in { def.displayName, LIGHT_ICON[def.light] .. "  " .. FLOW_ICON[def.flow] } do
-		local label = Instance.new("TextLabel")
-		label.BackgroundTransparency = 1
-		label.Size = UDim2.fromScale(1, if i == 1 then 0.48 else 0.36)
-		label.Text = text
-		label.TextScaled = true
-		label.FontFace = Font.fromEnum(Enum.Font.FredokaOne)
-		label.TextColor3 = if i == 1 then Color3.fromRGB(60, 44, 30) else Color3.fromRGB(90, 70, 50)
-		label.LayoutOrder = i
-		label.Parent = gui
-	end
-	gui.Parent = tablet
-
-	-- Lock badge, toggled by PlotService when the socket's Unlocked attribute changes
-	local badge = Instance.new("BillboardGui")
-	badge.Name = "LockBadge"
-	badge.Size = UDim2.fromOffset(64, 64)
-	badge.StudsOffset = Vector3.new(0, 3, 0)
-	badge.MaxDistance = 70
-	badge.LightInfluence = 0
-	badge.Enabled = false
-	local lock = Instance.new("TextLabel")
-	lock.BackgroundTransparency = 1
-	lock.Size = UDim2.fromScale(1, 1)
-	lock.Text = "🔒"
-	lock.TextScaled = true
-	lock.Parent = badge
-	badge.Parent = socket
+	-- Name, habitat and lock state are client billboards (WorldLabelController), not parts
 
 	-- Flavour per location
 	if layout.kelp then
@@ -509,9 +458,6 @@ local function buildPlot(index: number, centre: Vector3)
 	spawn.AllowTeamChangeOnTouch = false
 	spawn.Duration = 0
 	spawn.Enabled = true
-
-	-- Owner sign at the entrance (PlotService sets the text)
-	Lib.Sign(plot, cf * CFrame.new(-13, TOP, -half + 3), "Empty Reef", 12, "OwnerSign")
 
 	return plot
 end

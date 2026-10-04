@@ -17,8 +17,6 @@ local SOCKET_LOOKS = {
 	locked = { Color = Color3.fromRGB(90, 90, 100), Transparency = 0.5 },
 }
 
-local EMPTY_SIGN_TEXT = "Empty Reef"
-
 local PlotService = {}
 
 local _freePlots: { Model } = {}
@@ -34,20 +32,6 @@ local function sortPool()
 	table.sort(_freePlots, function(a, b)
 		return plotNumber(a) < plotNumber(b)
 	end)
-end
-
-local function setSignText(plot: Model, text: string)
-	local sign = plot:FindFirstChild("OwnerSign")
-	local board = sign and sign:FindFirstChild("Board")
-	if board == nil then
-		return
-	end
-	for _, gui in board:GetChildren() do
-		local label = gui:FindFirstChild("Text")
-		if label and label:IsA("TextLabel") then
-			label.Text = text
-		end
-	end
 end
 
 -- Collects every ReefPlot, validates it against SocketDefinitions, and builds the free pool + socket cache
@@ -95,13 +79,9 @@ function PlotService:Init()
 
 	sortPool()
 	for _, plot in _freePlots do
-		setSignText(plot, EMPTY_SIGN_TEXT)
+		plot:SetAttribute("OwnerName", nil)
 		for _, socket in _socketCache[plot] do
 			socket:SetAttribute("Unlocked", nil)
-			local badge = socket:FindFirstChild("LockBadge")
-			if badge and badge:IsA("BillboardGui") then
-				badge.Enabled = false
-			end
 		end
 	end
 	print(("PlotService: %d plots ready"):format(#_freePlots))
@@ -140,9 +120,9 @@ function PlotService.AssignPlot(player: Player): Types.Result<Model>
 	_plotByPlayer[player] = plot
 	plot:AddPersistentPlayer(player)
 	plot:SetAttribute("OwnerUserId", player.UserId)
+	plot:SetAttribute("OwnerName", player.DisplayName) -- clients draw the owner billboard from this
 	player:SetAttribute("PlotId", plot.Name)
 	PlayerStateService.SetPlotId(player, plot.Name)
-	setSignText(plot, player.DisplayName .. "'s Reef")
 	return Result.result(plot)
 end
 
@@ -160,6 +140,7 @@ function PlotService.ReleasePlot(player: Player)
 	end
 
 	plot:SetAttribute("OwnerUserId", nil)
+	plot:SetAttribute("OwnerName", nil)
 	pcall(function()
 		plot:RemovePersistentPlayer(player)
 	end)
@@ -172,12 +153,7 @@ function PlotService.ReleasePlot(player: Player)
 		socket:SetAttribute("ReadyAt", nil)
 		socket.Color = SOCKET_LOOKS.locked.Color
 		socket.Transparency = SOCKET_LOOKS.locked.Transparency
-		local badge = socket:FindFirstChild("LockBadge")
-		if badge and badge:IsA("BillboardGui") then
-			badge.Enabled = false
-		end
 	end
-	setSignText(plot, EMPTY_SIGN_TEXT)
 
 	if player.Parent then
 		player:SetAttribute("PlotId", nil)
@@ -220,11 +196,6 @@ function PlotService.RefreshSocketVisual(player: Player, socketId: string)
 	local look = if unlocked then SOCKET_LOOKS.unlocked else SOCKET_LOOKS.locked
 	socket.Color = look.Color
 	socket.Transparency = look.Transparency
-
-	local badge = socket:FindFirstChild("LockBadge")
-	if badge and badge:IsA("BillboardGui") then
-		badge.Enabled = not unlocked
-	end
 end
 
 function PlotService.RefreshAllSockets(player: Player)
