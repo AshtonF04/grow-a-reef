@@ -6,6 +6,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 local CoralDefinitions = require(ReplicatedStorage.Shared.Config.CoralDefinitions)
+local SocketDefinitions = require(ReplicatedStorage.Shared.Config.SocketDefinitions)
+local EconomyMath = require(ReplicatedStorage.Shared.Logic.EconomyMath)
 local GrowthMath = require(ReplicatedStorage.Shared.Logic.GrowthMath)
 local TimeUtil = require(ReplicatedStorage.Shared.Util.TimeUtil)
 local Types = require(ReplicatedStorage.Shared.Types)
@@ -16,6 +18,7 @@ local UIKit = require(script.Parent.Parent.UI.UIKit)
 type SocketVisual = {
 	model: Model?,
 	visualStage: string?,
+	flourishing: boolean?,
 	coralId: string?,
 	pending: thread?,
 	timer: BillboardGui?,
@@ -79,6 +82,36 @@ local function cloneStageModel(coralId: string, visualStage: string): Model
 	return m
 end
 
+-- Same rule as the server: a full light + flow match (socket id is its Part name) unlocks Flourishing
+local function isConditionMatch(coralId: string, socketId: string): boolean
+	local coral = CoralDefinitions[coralId]
+	local socket = SocketDefinitions[socketId]
+	return coral ~= nil and socket ~= nil and EconomyMath.IsConditionMatch(coral, socket)
+end
+
+-- Placeholder Flourishing marker: sparkles rising from the coral (proper VFX in M5-03)
+local function addSparkles(model: Model)
+	local root = model.PrimaryPart
+	if root == nil then
+		return
+	end
+	local emitter = Instance.new("ParticleEmitter")
+	emitter.Name = "FlourishSparkles"
+	emitter.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	emitter.Color = ColorSequence.new(Color3.fromRGB(255, 240, 150), Color3.fromRGB(150, 255, 220))
+	emitter.LightEmission = 1
+	emitter.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.35), NumberSequenceKeypoint.new(1, 0) })
+	emitter.Lifetime = NumberRange.new(1.2, 1.8)
+	emitter.Rate = 6
+	emitter.Speed = NumberRange.new(1.5, 2.5)
+	emitter.SpreadAngle = Vector2.new(35, 35)
+	emitter.EmissionDirection = Enum.NormalId.Top
+	local attachment = Instance.new("Attachment")
+	attachment.Position = Vector3.new(0, 1.5, 0)
+	attachment.Parent = root
+	emitter.Parent = attachment
+end
+
 local function buildTimer(socket: BasePart): (BillboardGui, TextLabel)
 	local gui = UIKit.new("BillboardGui", {
 		Name = "CoralTimer",
@@ -117,8 +150,9 @@ local function updateTimerText(socket: BasePart, visual: SocketVisual)
 	local remaining = GrowthMath.GetSecondsRemaining(placement, TimeUtil.Now())
 	local pill = label.Parent :: Frame
 	if remaining <= 0 then
-		if label.Text ~= "Ready!" then
-			label.Text = "Ready!"
+		local ready = if visual.flourishing then "✨ Ready!" else "Ready!"
+		if label.Text ~= ready then
+			label.Text = ready
 			pill.BackgroundColor3 = Theme.Colors.Seafoam
 			-- little bounce to draw the eye
 			local gui = visual.timer :: BillboardGui
@@ -171,6 +205,7 @@ local function clearVisual(visual: SocketVisual)
 	end
 	visual.visualStage = nil
 	visual.coralId = nil
+	visual.flourishing = nil
 end
 
 function ReefVisualController.UpdateSocketVisual(socket: BasePart)
@@ -190,10 +225,11 @@ function ReefVisualController.UpdateSocketVisual(socket: BasePart)
 	end
 
 	local now = TimeUtil.Now()
-	local stage = GrowthMath.GetStage(placement, now)
+	local stage = GrowthMath.GetStage(placement, now, isConditionMatch(placement.coralId, socket.Name))
 	local visualStage = GrowthMath.GetVisualStage(stage)
+	local flourishing = stage == "Flourishing"
 
-	if visual.visualStage ~= visualStage or visual.coralId ~= placement.coralId then
+	if visual.visualStage ~= visualStage or visual.coralId ~= placement.coralId or visual.flourishing ~= flourishing then
 		local isNew = visual.model == nil or visual.coralId ~= placement.coralId
 		if visual.model then
 			visual.model:Destroy()
@@ -206,6 +242,10 @@ function ReefVisualController.UpdateSocketVisual(socket: BasePart)
 		visual.model = model
 		visual.visualStage = visualStage
 		visual.coralId = placement.coralId
+		visual.flourishing = flourishing
+		if flourishing then
+			addSparkles(model)
+		end
 
 		-- Pop-in: start small and grow to full size
 		local ok = pcall(function()

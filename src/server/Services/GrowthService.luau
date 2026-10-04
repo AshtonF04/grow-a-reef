@@ -6,6 +6,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CoralDefinitions = require(ReplicatedStorage.Shared.Config.CoralDefinitions)
 local SocketDefinitions = require(ReplicatedStorage.Shared.Config.SocketDefinitions)
 local GrowthMath = require(ReplicatedStorage.Shared.Logic.GrowthMath)
+local EconomyMath = require(ReplicatedStorage.Shared.Logic.EconomyMath)
+local EconomyConfig = require(ReplicatedStorage.Shared.Config.EconomyConfig)
 local Types = require(ReplicatedStorage.Shared.Types)
 local Result = require(ReplicatedStorage.Shared.Util.Result)
 local Signal = require(ReplicatedStorage.Shared.Util.Signal)
@@ -19,6 +21,13 @@ type ClaimReward = Types.ClaimReward
 type Result<T> = Types.Result<T>
 
 local GrowthService = {}
+
+-- Full light + flow match unlocks Flourishing; partial matches still earn their bonus via EconomyMath
+function GrowthService.IsConditionMatch(coralId: string, socketId: string): boolean
+	local coral = CoralDefinitions[coralId]
+	local socket = SocketDefinitions[socketId]
+	return coral ~= nil and socket ~= nil and EconomyMath.IsConditionMatch(coral, socket)
+end
 
 GrowthService.CoralPlanted = Signal.new() :: Signal.Signal<Player, string, Placement>
 GrowthService.CoralClaimed = Signal.new() :: Signal.Signal<Player, string, ClaimReward>
@@ -105,9 +114,10 @@ function GrowthService.Claim(player: Player, socketId: string): Result<ClaimRewa
 	if not cleared.ok then
 		return Result.error(cleared.err)
 	end
-	local shells = coral.baseYield -- TODO(M4-03): EconomyMath
+	local stage = GrowthMath.GetStage(placement, TimeUtil.Now(), GrowthService.IsConditionMatch(coral.id, socketId))
+	local shells = EconomyMath.ComputeHarvestYield(coral, SocketDefinitions[socketId], stage, placement.trait)
 	InventoryService.GrantShells(player, shells, "claim")
-	InventoryService.GrantFragment(player, coral.id, 1, "claim_return")
+	InventoryService.GrantFragment(player, coral.id, EconomyConfig.HARVEST_FRAGMENT_RETURN, "claim_return")
 
 	local reward: ClaimReward = {
 		shells = shells,
@@ -124,7 +134,7 @@ function GrowthService.GetStage(player: Player, socketId: string): Types.GrowthS
 	if placement == nil then
 		return nil
 	end
-	return GrowthMath.GetStage(placement, TimeUtil.Now())
+	return GrowthMath.GetStage(placement, TimeUtil.Now(), GrowthService.IsConditionMatch(placement.coralId, socketId))
 end
 
 function GrowthService.GetSnapshot(player: Player): { Types.SocketSnapshot }
@@ -134,7 +144,7 @@ function GrowthService.GetSnapshot(player: Player): { Types.SocketSnapshot }
 		table.insert(out, {
 			socketId = socketId,
 			coralId = placement.coralId,
-			stage = GrowthMath.GetStage(placement, now),
+			stage = GrowthMath.GetStage(placement, now, GrowthService.IsConditionMatch(placement.coralId, socketId)),
 			progress = GrowthMath.GetProgress(placement, now),
 			readyAt = placement.readyAt,
 			ready = GrowthMath.IsReady(placement, now),
