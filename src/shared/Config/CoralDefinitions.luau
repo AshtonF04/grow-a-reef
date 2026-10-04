@@ -24,16 +24,46 @@ local CoralDefinitions: { [string]: CoralDefinition } = {
         id = "sun_coral",
         displayName = "Sun Coral",
         zone = 1,
-        growSeconds = 300,
-        baseYield = 18,
+        growSeconds = 120, -- tuned by EconomySim (M4-07): short first loop for new players
+        baseYield = 12,
         light = "Bright",
         flow = "Medium",
         family = "Branching",
         fragmentPriceShells = 10,
         modelName = "SunCoral",
         traitPool = {}
-    }
-    
+    },
+
+    -- Fast-growing, cheap: good while waiting on slower corals
+    branch_coral = {
+        id = "branch_coral",
+        displayName = "Branch Coral",
+        zone = 1,
+        growSeconds = 180,
+        baseYield = 10,
+        light = "Bright",
+        flow = "High",
+        family = "Branching",
+        fragmentPriceShells = 8,
+        modelName = "BranchCoral",
+        traitPool = {}
+    },
+
+    -- Slow, high value: earns more per minute only on a matching Dim/Low socket
+    brain_coral = {
+        id = "brain_coral",
+        displayName = "Brain Coral",
+        zone = 1,
+        growSeconds = 600,
+        baseYield = 40,
+        light = "Dim",
+        flow = "Low",
+        family = "Massive",
+        fragmentPriceShells = 20,
+        modelName = "BrainCoral",
+        traitPool = {}
+    },
+
 }
 
 for coralId, coral in CoralDefinitions do
