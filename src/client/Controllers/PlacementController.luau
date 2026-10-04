@@ -1,6 +1,7 @@
 --!strict
 -- Plant / Claim / Unlock input via client-side ProximityPrompts on the player's own sockets (works on
--- touch, mouse/keyboard and controller). Locked sockets open SocketPopupController on a short hold. The custom tap-to-place ghost replaces this in M5-02.
+-- touch, mouse/keyboard and controller). Locked sockets open SocketPopupController on a short hold; empty sockets with no fragments send you to the
+-- hub shop stall (ShopBoothController.Teleport). The custom tap-to-place ghost replaces this in M5-02.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
@@ -11,7 +12,7 @@ local ClientNet = require(script.Parent.Parent.Net.ClientNet)
 local PlotLocator = require(script.Parent.Parent.Util.PlotLocator)
 local StateController = require(script.Parent.StateController)
 local PlantTrayController = require(script.Parent.PlantTrayController)
-local ShopController = require(script.Parent.ShopController)
+local ShopBoothController = require(script.Parent.ShopBoothController)
 local SocketPopupController = require(script.Parent.SocketPopupController)
 local Theme = require(script.Parent.Parent.UI.Theme)
 
@@ -107,7 +108,7 @@ function PlacementController.RefreshPrompt(socketId: string)
 	local coralId = socket:GetAttribute("CoralId")
 	if coralId == nil then
 		prompt.ObjectText = SocketDefinitions[socketId].displayName
-		prompt.ActionText = if pickFragment() then "Plant" else "Get Fragments"
+		prompt.ActionText = if pickFragment() then "Plant" else "Go to Shop"
 		prompt.Enabled = true
 		return
 	end
@@ -145,11 +146,11 @@ function PlacementController.OnSocketActivated(socketId: string)
 
 	local coralId = socket:GetAttribute("CoralId")
 	if coralId == nil then
-		-- Empty socket: choose a coral in the plant tray, or go buy one
+		-- Empty socket: choose a coral in the plant tray, or head to the shop stall to buy one
 		if pickFragment() then
 			PlantTrayController.Open(socketId)
 		else
-			ShopController.Open()
+			ShopBoothController.Teleport()
 		end
 	else
 		local result = ClientNet.ClaimCoral(socketId)

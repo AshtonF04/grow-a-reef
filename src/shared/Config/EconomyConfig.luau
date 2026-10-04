@@ -13,6 +13,8 @@ local EconomyConfig = {
 	MAX_GRANT_PER_CALL = 10000,
 	HARVEST_FRAGMENT_RETURN = 1,
 	MAX_BUY_QTY = 10,
+	-- Fragments can only be bought this close (studs) to the hub shop stall's counter
+	SHOP_RANGE = 25,
 }
 
 return table.freeze(EconomyConfig)

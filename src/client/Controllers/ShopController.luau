@@ -1,6 +1,7 @@
 --!strict
 -- Coral fragment shop. The catalog (prices, availability) comes from the server; affordability is
 -- refreshed live from StateController so the panel reacts instantly as Shells change.
+-- Opened from the hub shop stall's prompt (ShopBoothController); the server only sells near the stall.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
@@ -224,6 +225,10 @@ function ShopController.Close()
 	if gui then
 		gui.Enabled = false
 	end
+end
+
+function ShopController.IsOpen(): boolean
+	return gui ~= nil and gui.Enabled
 end
 
 function ShopController.Toggle()

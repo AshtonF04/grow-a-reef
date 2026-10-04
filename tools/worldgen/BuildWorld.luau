@@ -222,9 +222,45 @@ Lib.Kelp(arch, Vector3.new(-15, 0, -24), 16)
 Lib.Kelp(arch, Vector3.new(15, 0, -28), 18)
 
 Lib.Sign(hub, CFrame.new(0, 0, 16) * CFrame.Angles(0, math.pi, 0), "Grow A Reef 🐠", 14, "WelcomeSign")
+
+-- Shop stall on the plaza edge, between two plot paths (150°), its counter facing the clam.
+-- ShopStall template (yaw 0, 9 tall): counter block x ±3.5, z ±1.8, top at y≈3; awning roof to z ±2.6.
+-- The crab shopkeeper stands behind the counter (+Z). ShopCounter (tagged) is what the client prompt and the
+-- server's SHOP_RANGE check use; workspace.World's ShopTeleport attribute is where the HUD Shop button lands.
+local SHOP_ANGLE = math.rad(150)
+local SHOP_POS = Vector3.new(math.cos(SHOP_ANGLE), 0, math.sin(SHOP_ANGLE)) * 22 + Vector3.new(0, 0.8, 0)
+local SHOP_CF = CFrame.lookAt(SHOP_POS, Vector3.new(0, SHOP_POS.Y, 0))
+local shop = Lib.Model("ShopStall", hub)
+Lib.Mesh("ShopStall", shop, SHOP_CF, 9, true)
+local keeper = Lib.Mesh("Shopkeeper", shop, SHOP_CF * CFrame.new(0, 0, 3.4), 4.6)
+if keeper then
+	Lib.Tag(keeper, "ShopNPC")
+end
+local counter = Lib.Part({
+	Name = "ShopCounter",
+	Size = Vector3.new(7, 3, 0.4),
+	CFrame = SHOP_CF * CFrame.new(0, 1.5, -2.1),
+	Transparency = 1,
+	CanCollide = false,
+	CanQuery = true,
+	CanTouch = false,
+	CastShadow = false,
+	Parent = shop,
+})
+Lib.Tag(counter, "ShopCounter")
+local shopSign = Lib.NameSign(shop, SHOP_CF * CFrame.new(-5.6, 0, -2.4) * CFrame.Angles(0, 0.3, 0), "Reef Shop 🐚", 3.2)
+if shopSign then
+	shopSign.Name = "ShopSign"
+end
+local landing = (SHOP_CF * CFrame.new(0, 0, -8)).Position
+world:SetAttribute("ShopTeleport", CFrame.lookAt(landing, Vector3.new(SHOP_POS.X, landing.Y, SHOP_POS.Z)))
+
 for i = 1, 8 do
 	local a = i / 8 * math.pi * 2 + 0.2
-	Lib.TubeCoral(hub, Vector3.new(math.cos(a) * 22, 0.8, math.sin(a) * 22), 1.1)
+	local pos = Vector3.new(math.cos(a) * 22, 0.8, math.sin(a) * 22)
+	if (pos - SHOP_POS).Magnitude > 9 then
+		Lib.TubeCoral(hub, pos, 1.1)
+	end
 end
 
 ------------------------------------------------------------------------------------------------
@@ -413,6 +449,14 @@ local function buildPlot(index: number, centre: Vector3)
 	spawn.AllowTeamChangeOnTouch = false
 	spawn.Duration = 0
 	spawn.Enabled = true
+
+	-- Owner sign on the seafloor beside the entrance ramp, facing the hub. Its text is filled in on each
+	-- client (WorldLabelController, "Your Reef" / "<name>'s Reef" / "Empty Reef") via the OwnerSignBoard tag.
+	local ownerSign = Lib.NameSign(plot, cf * CFrame.new(12, 0, -39) * CFrame.Angles(0, -0.2, 0), "Empty Reef", 4.5)
+	if ownerSign then
+		ownerSign.Name = "OwnerSign"
+		Lib.Tag(ownerSign:FindFirstChild("Board") :: BasePart, "OwnerSignBoard")
+	end
 
 	return plot
 end

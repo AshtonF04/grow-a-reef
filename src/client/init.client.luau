@@ -9,6 +9,7 @@ local AmbientController = require(script.Controllers.AmbientController)
 local PromptController = require(script.Controllers.PromptController)
 local SocketPopupController = require(script.Controllers.SocketPopupController)
 local WorldLabelController = require(script.Controllers.WorldLabelController)
+local ShopBoothController = require(script.Controllers.ShopBoothController)
 local Theme = require(script.UI.Theme)
 local ClientNet = require(script.Net.ClientNet)
 
@@ -22,7 +23,7 @@ task.spawn(function()
 end)
 HUDController.ButtonPressed:Connect(function(name: string)
 	if name == "Shop" then
-		ShopController.Toggle()
+		ShopBoothController.Teleport() -- the shop itself opens from the stall's prompt
 	end
 end)
 PlantTrayController.Init()
@@ -30,6 +31,7 @@ ShopController.Init()
 PromptController.Init()
 SocketPopupController.Init()
 WorldLabelController.Init()
+ShopBoothController.Init()
 
 -- 3. Handshake (retries while the server is still loading our data)
 ClientNet.ClientReady()

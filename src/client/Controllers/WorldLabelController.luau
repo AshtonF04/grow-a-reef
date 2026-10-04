@@ -1,74 +1,61 @@
 --!strict
--- OwnerTag billboard: "<name>'s Reef" over each claimed plot's entrance (from the plot's OwnerName attribute).
--- Client-only and parented to the streamed PlotSpawn, so it disappears with it when it streams out.
--- Unclaimed plots show no tag. Socket names are wooden NameSign meshes in the world (BuildWorld); lock state
--- and price only show in the socket's proximity prompt.
+-- Fills in each plot's wooden OwnerSign (built by BuildWorld, board tagged OwnerSignBoard) from the plot's
+-- OwnerName / OwnerUserId attributes: "Your Reef" (green) on your own plot, "<name>'s Reef" on others,
+-- "Empty Reef" when unclaimed. Client-only text, so each player sees "Your Reef" on their own plot.
+-- Socket names are NameSign meshes too; lock state and price only show in the socket's proximity prompt.
 local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 
-local Theme = require(script.Parent.Parent.UI.Theme)
-local UIKit = require(script.Parent.Parent.UI.UIKit)
-
 local WorldLabelController = {}
 
-local OWNER_TAG_DISTANCE = 220
+local TEXT_COLOR = Color3.fromRGB(255, 248, 230)
+local MINE_COLOR = Color3.fromRGB(150, 255, 140)
 
-local function bindPlot(plot: Model)
-	local spawnPart = plot:WaitForChild("PlotSpawn", 10)
-	if spawnPart == nil or not spawnPart:IsA("BasePart") or spawnPart:FindFirstChild("OwnerTag") then
+local function findPlot(inst: Instance): Model?
+	local node = inst.Parent
+	for _ = 1, 8 do
+		if node == nil then
+			return nil
+		end
+		if node:IsA("Model") and CollectionService:HasTag(node, "ReefPlot") then
+			return node
+		end
+		node = node.Parent
+	end
+	return nil
+end
+
+local function bindBoard(board: BasePart)
+	local plot = findPlot(board)
+	local surface = board:WaitForChild("LabelFront", 10)
+	local label = surface and surface:WaitForChild("Text", 10)
+	if plot == nil or label == nil or not label:IsA("TextLabel") then
 		return
 	end
-	local gui = UIKit.new("BillboardGui", {
-		Name = "OwnerTag",
-		Adornee = spawnPart,
-		Size = UDim2.fromOffset(300, 56),
-		StudsOffsetWorldSpace = Vector3.new(0, 10, 0),
-		MaxDistance = OWNER_TAG_DISTANCE,
-		LightInfluence = 0,
-		ResetOnSpawn = false,
-	})
-	local pill, label = UIKit.pill({
-		Name = "Owner",
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromScale(1, 1),
-		Parent = gui,
-	}, "", "🐠")
 
 	local function refresh()
 		local name = plot:GetAttribute("OwnerName")
 		local mine = plot:GetAttribute("OwnerUserId") == Players.LocalPlayer.UserId
-		gui.Enabled = type(name) == "string"
-		label.Text = if mine then "Your Reef" elseif type(name) == "string" then name .. "'s Reef" else ""
-		-- Your own plot is green so it's easy to find from the hub
-		if mine then
-			UIKit.setButtonColor(pill, Theme.Colors.Green, Theme.Colors.GreenDark)
-		else
-			UIKit.setButtonColor(pill, Theme.Colors.Blue, Theme.Colors.BlueDark)
-		end
-		local textStroke = label:FindFirstChild("TextStroke") :: UIStroke
-		textStroke.Color = if mine then Theme.Colors.GreenDark else Theme.Colors.Navy
+		label.Text = if mine then "Your Reef" elseif type(name) == "string" then name .. "'s Reef" else "Empty Reef"
+		label.TextColor3 = if mine then MINE_COLOR else TEXT_COLOR
 	end
 	refresh()
 	plot:GetAttributeChangedSignal("OwnerName"):Connect(refresh)
 	plot:GetAttributeChangedSignal("OwnerUserId"):Connect(refresh)
-	gui.Parent = spawnPart
-end
-
-local function observe(tag: string, className: string, callback: (any) -> ())
-	local function consider(inst: Instance)
-		if inst:IsA(className) then
-			task.spawn(callback, inst)
-		end
-	end
-	CollectionService:GetInstanceAddedSignal(tag):Connect(consider)
-	for _, inst in CollectionService:GetTagged(tag) do
-		consider(inst)
-	end
 end
 
 function WorldLabelController.Init()
-	observe("ReefPlot", "Model", bindPlot)
+	-- Tags fire again when a streamed-out plot comes back, so the new board instance gets bound too
+	CollectionService:GetInstanceAddedSignal("OwnerSignBoard"):Connect(function(inst)
+		if inst:IsA("BasePart") then
+			task.spawn(bindBoard, inst)
+		end
+	end)
+	for _, inst in CollectionService:GetTagged("OwnerSignBoard") do
+		if inst:IsA("BasePart") then
+			task.spawn(bindBoard, inst)
+		end
+	end
 end
 
 return WorldLabelController

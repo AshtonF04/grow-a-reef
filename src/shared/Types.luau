@@ -2,7 +2,7 @@
 export type LightLevel = "Bright" | "Dim"
 export type FlowLevel = "Low" | "Medium" | "High"
 
-export type ErrorCode = "InvalidArgs" | "RateLimited" | "NotLoaded" | "UnknownCoral" | "UnknownSocket" | "SocketLocked" | "SocketOccupied" | "SocketEmpty" | "ZoneLocked" | "PrerequisiteMissing" | "NotEnoughFragments" | "NotEnoughShells" | "NotEnoughPearls" | "NotReady" | "AlreadyUnlocked" | "Internal"
+export type ErrorCode = "InvalidArgs" | "RateLimited" | "NotLoaded" | "UnknownCoral" | "UnknownSocket" | "SocketLocked" | "SocketOccupied" | "SocketEmpty" | "ZoneLocked" | "PrerequisiteMissing" | "NotEnoughFragments" | "NotEnoughShells" | "NotEnoughPearls" | "NotReady" | "AlreadyUnlocked" | "TooFar" | "Internal"
 
 export type Result<T> = { ok: true, value: T} | { ok: false, err: ErrorCode }
 

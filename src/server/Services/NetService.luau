@@ -1,6 +1,7 @@
 --!strict
 -- The trust boundary. Every remote handler gets the same wrapper: argument shape check, rate limit,
 -- loaded check and error capture, so each new remote is safe by default. Never throws to the client.
+local CollectionService = game:GetService("CollectionService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -17,6 +18,22 @@ local RateLimiter = require(script.Parent.Parent.Util.RateLimiter)
 local Validate = require(script.Parent.Parent.Util.Validate)
 
 type BindOptions = { requireLoaded: boolean? }
+
+-- Fragment purchases only happen at the hub shop stall: the character must be near its ShopCounter part.
+-- Checked here at the remote boundary (not in ShopService) so DevTools/_DevBridge calls still work anywhere.
+local function isNearShop(player: Player): boolean
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if root == nil or not root:IsA("BasePart") then
+		return false
+	end
+	for _, counter in CollectionService:GetTagged("ShopCounter") do
+		if counter:IsA("BasePart") and (counter.Position - root.Position).Magnitude <= EconomyConfig.SHOP_RANGE then
+			return true
+		end
+	end
+	return false
+end
 
 local NetService = {}
 
@@ -68,6 +85,9 @@ function NetService:Init()
 	NetService.Bind("buy_fragment", function(coralId, qty)
 		return Validate.IsKnownId(coralId, CoralDefinitions) and Validate.IsInteger(qty, 1, EconomyConfig.MAX_BUY_QTY)
 	end, function(player, coralId, qty)
+		if not isNearShop(player) then
+			return Result.error("TooFar")
+		end
 		return ShopService.BuyFragment(player, coralId, qty)
 	end)
 

@@ -1,5 +1,6 @@
 --!strict
--- Always-on HUD (Shells counter + side buttons). Driven only by StateController, never by a remote.
+-- Always-on HUD: a left column with the Shells counter on top and side buttons (Shop teleport etc.) below,
+-- all soft-cornered rectangles. Driven only by StateController, never by a remote.
 -- The ScreenGui is built from code in Init(); requiring this module never yields.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -21,6 +22,8 @@ local shellsScale: UIScale? = nil
 local buttonColumn: Frame? = nil
 local lastShells: number? = nil
 
+local COLUMN_WIDTH = 168
+
 -- 12345 -> "12,345"
 local function formatNumber(n: number): string
 	local text = tostring(math.floor(n))
@@ -38,23 +41,12 @@ local function build(playerGui: PlayerGui)
 		DisplayOrder = 1,
 	})
 
-	-- Shells pill, top centre: gold coin bubble + count, like the reference's currency pill
-	local pill, label = UIKit.pill({
-		Name = "ShellsPill",
-		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, Theme.Spacing.S),
-		Size = UDim2.fromOffset(200, 52),
-		Parent = gui,
-	}, "0", "🐚")
-	label.Name = "ShellsLabel"
-	local scale = UIKit.new("UIScale", { Parent = pill })
-
-	-- Left-side button column (Shop etc.), registered by other controllers via AddButton
+	-- Left column: Shells counter first, then buttons registered by other controllers via AddButton
 	local column = UIKit.new("Frame", {
 		Name = "Buttons",
 		AnchorPoint = Vector2.new(0, 0.5),
-		Position = UDim2.new(0, Theme.Spacing.M, 0.5, 0),
-		Size = UDim2.fromOffset(84, 320),
+		Position = UDim2.new(0, Theme.Spacing.M, 0.42, 0),
+		Size = UDim2.fromOffset(COLUMN_WIDTH, 320),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	}, {
@@ -64,6 +56,17 @@ local function build(playerGui: PlayerGui)
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}),
 	})
+
+	-- Shells counter: gold coin bubble + count, a soft rectangle rather than a pill
+	local pill, label = UIKit.pill({
+		Name = "ShellsPill",
+		Size = UDim2.fromOffset(COLUMN_WIDTH, 52),
+		LayoutOrder = -1,
+		Parent = column,
+	}, "0", "🐚")
+	label.Name = "ShellsLabel";
+	(pill:FindFirstChildOfClass("UICorner") :: UICorner).CornerRadius = Theme.Corner.M
+	local scale = UIKit.new("UIScale", { Parent = pill })
 
 	gui.Parent = playerGui
 	shellsLabel = label
@@ -118,36 +121,46 @@ function HUDController.UpdateHUD(state: Types.ClientState)
 	lastShells = shells
 end
 
--- Adds a round button with a caption to the left column; fires ButtonPressed(name) when tapped
+-- Adds a soft-cornered rectangular button (icon + name) to the left column; fires ButtonPressed(name) when tapped
 function HUDController.AddButton(name: string, icon: string, color: Color3?, darkColor: Color3?, order: number?): TextButton?
 	local column = buttonColumn
 	if column == nil then
 		return nil
 	end
-	local button = UIKit.circleButton({
+	local button = UIKit.button({
 		Name = name .. "Button",
 		Text = "",
+		Size = UDim2.fromOffset(COLUMN_WIDTH, 56),
 		LayoutOrder = order or 0,
 		Parent = column,
-	}, 76, color, darkColor)
+	}, color, darkColor);
+	(button:FindFirstChildOfClass("UICorner") :: UICorner).CornerRadius = Theme.Corner.M
+	local dark = darkColor or Theme.Colors.BlueDark
 	UIKit.new("TextLabel", {
+		Name = "Icon",
 		BackgroundTransparency = 1,
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.45),
-		Size = UDim2.fromScale(0.6, 0.6),
+		AnchorPoint = Vector2.new(0, 0.5),
+		Position = UDim2.new(0, 10, 0.5, 0),
+		Size = UDim2.fromOffset(38, 38),
 		Text = icon,
 		TextScaled = true,
 		FontFace = Theme.Fonts.Body,
 		Parent = button,
 	})
-	UIKit.label({
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 1),
-		Size = UDim2.new(1, 8, 0, 24),
+	local caption = UIKit.label({
+		Name = "Caption",
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -10, 0.5, 0),
+		Size = UDim2.new(1, -64, 1, -12),
 		Text = name,
-		TextSize = Theme.TextSize.Body,
+		TextScaled = true,
 		Parent = button,
 	})
+	UIKit.new("UITextSizeConstraint", { MaxTextSize = Theme.TextSize.Title, Parent = caption })
+	local captionStroke = caption:FindFirstChildOfClass("UIStroke")
+	if captionStroke then
+		captionStroke.Color = dark
+	end
 	button.Activated:Connect(function()
 		HUDController.ButtonPressed:Fire(name)
 	end)
