@@ -8,7 +8,7 @@ function TimeUtil.Now(): number
     if RunService:IsServer() then
         return os.time()
     else
-        return Workspace.GetServerTimeNow()
+        return Workspace:GetServerTimeNow()
     end
 end
 
