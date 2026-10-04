@@ -7,6 +7,7 @@ local TweenService = game:GetService("TweenService")
 
 local CoralDefinitions = require(ReplicatedStorage.Shared.Config.CoralDefinitions)
 local SocketDefinitions = require(ReplicatedStorage.Shared.Config.SocketDefinitions)
+local HabitatIcons = require(ReplicatedStorage.Shared.Config.HabitatIcons)
 local EconomyMath = require(ReplicatedStorage.Shared.Logic.EconomyMath)
 local ClientNet = require(script.Parent.Parent.Net.ClientNet)
 local StateController = require(script.Parent.StateController)
@@ -20,6 +21,8 @@ local gui: ScreenGui? = nil
 local sheet: Frame? = nil
 local titleLabel: TextLabel? = nil
 local grid: ScrollingFrame? = nil
+local lightLabel: TextLabel? = nil
+local flowLabel: TextLabel? = nil
 local currentSocket: string? = nil
 local busy = false
 
@@ -56,10 +59,38 @@ local function build()
 	local panel = window.frame
 	local title = window.title
 
+	-- Socket details strip: the conditions the fit chips on each card are judged against
+	local details = UIKit.new("Frame", {
+		Name = "SocketDetails",
+		Position = UDim2.fromOffset(0, 6),
+		Size = UDim2.new(1, 0, 0, 30),
+		BackgroundTransparency = 1,
+		Parent = window.content,
+	}, {
+		UIKit.new("UIListLayout", {
+			FillDirection = Enum.FillDirection.Horizontal,
+			Padding = UDim.new(0, 8),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}),
+	})
+	local function detailPill(name: string, width: number, order: number): TextLabel
+		local _, label = UIKit.pill({
+			Name = name,
+			Size = UDim2.fromOffset(width, 30),
+			BackgroundColor3 = Theme.Colors.BlueInset,
+			LayoutOrder = order,
+			Parent = details,
+		}, "")
+		label.FontFace = Theme.Fonts.Body
+		return label
+	end
+	local light = detailPill("Light", 130, 1)
+	local flow = detailPill("Flow", 170, 2)
+
 	local scroll = UIKit.new("ScrollingFrame", {
 		Name = "Cards",
-		Position = UDim2.fromOffset(0, 4),
-		Size = UDim2.new(1, 0, 1, -4),
+		Position = UDim2.fromOffset(0, 42),
+		Size = UDim2.new(1, 0, 1, -42),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ScrollBarThickness = 6,
@@ -80,6 +111,8 @@ local function build()
 	sheet = panel
 	titleLabel = title
 	grid = scroll
+	lightLabel = light
+	flowLabel = flow
 end
 
 local function fitChip(parent: Instance, coralId: string, socketId: string)
@@ -206,6 +239,10 @@ function PlantTrayController.Open(socketId: string)
 	local socket = SocketDefinitions[socketId]
 	if titleLabel then
 		titleLabel.Text = if socket then socket.displayName else socketId
+	end
+	if socket and lightLabel and flowLabel then
+		lightLabel.Text = HabitatIcons.Light[socket.light] .. " " .. HabitatIcons.LightLabel[socket.light]
+		flowLabel.Text = HabitatIcons.Flow[socket.flow] .. " " .. HabitatIcons.FlowLabel[socket.flow]
 	end
 	PlantTrayController.Refresh()
 	local screen = gui :: ScreenGui

@@ -1,6 +1,6 @@
 --!strict
--- Plant / Claim input via client-side ProximityPrompts on the player's own sockets (works on touch,
--- mouse/keyboard and controller). The custom tap-to-place ghost replaces this in M5-02.
+-- Plant / Claim / Unlock input via client-side ProximityPrompts on the player's own sockets (works on
+-- touch, mouse/keyboard and controller). Locked sockets open SocketPopupController on a short hold. The custom tap-to-place ghost replaces this in M5-02.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
@@ -12,9 +12,12 @@ local PlotLocator = require(script.Parent.Parent.Util.PlotLocator)
 local StateController = require(script.Parent.StateController)
 local PlantTrayController = require(script.Parent.PlantTrayController)
 local ShopController = require(script.Parent.ShopController)
+local SocketPopupController = require(script.Parent.SocketPopupController)
 local Theme = require(script.Parent.Parent.UI.Theme)
 
 local PlacementController = {}
+
+local UNLOCK_HOLD_SECONDS = 0.5 -- locked sockets are "hold E" so walking past never pops a window
 
 local prompts: { [string]: ProximityPrompt } = {}
 local sockets: { [string]: BasePart } = {}
@@ -38,21 +41,6 @@ local function pickFragment(): string?
 		end
 	end
 	return best
-end
-
--- Next in unlockOrder: every socket with a lower order is already unlocked (same rule as ShopService)
-local function isNextToUnlock(socketId: string): boolean
-	local state = StateController.Get()
-	local def = SocketDefinitions[socketId]
-	if state == nil or def == nil then
-		return false
-	end
-	for otherId, other in SocketDefinitions do
-		if other.unlockOrder < def.unlockOrder and state.unlocks.sockets[otherId] ~= true then
-			return false
-		end
-	end
-	return true
 end
 
 -- Floating "+N 🐚" above the socket after a claim
@@ -103,17 +91,16 @@ function PlacementController.RefreshPrompt(socketId: string)
 		return
 	end
 
-	if socket:GetAttribute("Unlocked") ~= true then
-		-- Only the next socket in unlockOrder offers an unlock; the prompt itself is the confirmation
-		if isNextToUnlock(socketId) then
-			local cost = SocketDefinitions[socketId].unlockCostShells
-			local shells = StateController.GetShells()
-			prompt.ObjectText = SocketDefinitions[socketId].displayName
-			prompt.ActionText = if shells >= cost
-				then ("Unlock (%d 🐚)"):format(cost)
-				else ("Need %d more 🐚"):format(cost - shells)
-			prompt.Enabled = true
-		end
+	local locked = socket:GetAttribute("Unlocked") ~= true
+	prompt.HoldDuration = if locked then UNLOCK_HOLD_SECONDS else 0
+	if locked then
+		-- Every locked socket opens the details popup; only the next one in unlockOrder can be bought there
+		local def = SocketDefinitions[socketId]
+		prompt.ObjectText = "🔒 " .. def.displayName
+		prompt.ActionText = if SocketPopupController.GetNextLocked() == socketId
+			then ("Unlock %d 🐚"):format(def.unlockCostShells)
+			else "Details"
+		prompt.Enabled = true
 		return
 	end
 
@@ -149,21 +136,15 @@ function PlacementController.OnSocketActivated(socketId: string)
 	if socket == nil or inFlight[socketId] then
 		return
 	end
+	if socket:GetAttribute("Unlocked") ~= true then
+		SocketPopupController.Open(socketId) -- the popup's Purchase button does the unlock
+		return
+	end
 	inFlight[socketId] = true
 	PlacementController.RefreshPrompt(socketId)
 
 	local coralId = socket:GetAttribute("CoralId")
-	if socket:GetAttribute("Unlocked") ~= true then
-		local cost = SocketDefinitions[socketId].unlockCostShells
-		if StateController.GetShells() >= cost then
-			local result = ClientNet.UnlockSocket(socketId)
-			if not result.ok then
-				warn("PlacementController: unlock failed: " .. tostring(result.err))
-			end
-		else
-			ShopController.Open() -- nudge toward earning: shows prices and balance
-		end
-	elseif coralId == nil then
+	if coralId == nil then
 		-- Empty socket: choose a coral in the plant tray, or go buy one
 		if pickFragment() then
 			PlantTrayController.Open(socketId)
