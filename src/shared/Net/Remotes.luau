@@ -5,6 +5,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Definitions: { [string]: "Function" | "Event" } = {
     client_ready = "Function",
     state_changed = "Event",
+    plant_coral = "Function",
+    claim_coral = "Function",
 }
 
 local Remotes = {}

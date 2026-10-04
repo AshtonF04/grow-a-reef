@@ -10,7 +10,6 @@ require(ReplicatedStorage.Shared.Config.SocketDefinitions)
 require(ReplicatedStorage.Shared.Config.CoralDefinitions)
 
 local Remotes = require(ReplicatedStorage.Shared.Net.Remotes)
-local Result = require(ReplicatedStorage.Shared.Util.Result)
 
 -- No character loads until the player's plot is assigned: PlotService.SpawnPlayerAtPlot is the only
 -- place characters load (on join and after death). Any feature that assumes a character exists on join
@@ -23,12 +22,20 @@ Remotes.CreateAll()
 -- 2. Require game services (requiring only loads them, nothing starts yet)
 local DataService = require(script.Services.DataService)
 local PlayerStateService = require(script.Services.PlayerStateService)
+local InventoryService = require(script.Services.InventoryService)
+local PlacementService = require(script.Services.PlacementService)
+local GrowthService = require(script.Services.GrowthService)
 local PlotService = require(script.Services.PlotService)
+local NetService = require(script.Services.NetService)
 
--- 3. Init game services in dependency order
+-- 3. Init game services in dependency order (NetService last: it exposes the others to clients)
 DataService:Init()
 PlayerStateService:Init()
+InventoryService:Init()
+PlacementService:Init()
+GrowthService:Init()
 PlotService:Init()
+NetService:Init()
 
 -- Studio-only command-bar helpers (see README)
 if RunService:IsStudio() then
@@ -69,7 +76,7 @@ local function onPlayerAdded(player: Player)
 		return
 	end
 
-	-- 3. Show their sockets, 4. spawn them there
+	-- 3. Write socket facts (unlocks + placements), 4. spawn them there
 	PlotService.RefreshAllSockets(player)
 	PlotService.SpawnPlayerAtPlot(player)
 end
@@ -79,20 +86,6 @@ local function onPlayerRemoving(player: Player)
 	PlotService.ReleasePlot(player)
 	PlayerStateService.RemovePlayer(player)
 end
-
--- client_ready is how the client asks for its data. Never throws to the client.
--- TODO(M3-07): this handler moves into NetService.
-local function onClientReady(player: Player)
-	if not PlayerStateService.IsLoaded(player) then
-		return Result.error("NotLoaded")
-	end
-
-	PlayerStateService.ReplicateSnapshot(player)
-	return Result.result(true)
-end
-
--- 4. Bind client_ready remote function to handler
-Remotes.GetFunction("client_ready").OnServerInvoke = onClientReady
 
 -- 5. Connect player events
 Players.PlayerAdded:Connect(onPlayerAdded)
