@@ -25,3 +25,9 @@ Packages/
 s
 # Wally server packages (regenerated with `wally install`)
 ServerPackages/
+
+# Local Studio backups (tools/backup)
+studio_backup/
+
+# Local screenshots from Studio captures
+screenshots/
