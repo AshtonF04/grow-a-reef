@@ -1,24 +1,20 @@
 --!nonstrict
--- Builds growth-stage coral models into ReplicatedStorage/Assets/Corals/<modelName>/{Bud,Young,Mature}
+-- LEGACY: builds the original Part-based coral models. The live game now uses AI-generated meshes in
+-- ReplicatedStorage/Assets/Corals, so this writes to ServerStorage/CoralPartsBackup/<modelName>/{Bud,Young,Mature}
+-- instead (never overwrites the live meshes). Copy a species folder into Assets/Corals to roll back.
 -- (M3-09, M4-02). Rules: invisible anchored `Root` PrimaryPart at the centre of the base, every part
 -- non-collide/query/touch, tip parts tagged `CoralTip`. Re-runnable (replaces existing models).
 -- Run in Edit mode: local f = game.ServerStorage.WorldGen:Clone() f.Parent = game.ServerStorage require(f.BuildCorals) f:Destroy()
 local Lib = require(script.Parent.Lib)
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local R = Lib.R
 
-local assets = ReplicatedStorage:FindFirstChild("Assets")
-if assets == nil then
-	assets = Instance.new("Folder")
-	assets.Name = "Assets"
-	assets.Parent = ReplicatedStorage
-end
-local coralsFolder = assets:FindFirstChild("Corals")
+local ServerStorage = game:GetService("ServerStorage")
+local coralsFolder = ServerStorage:FindFirstChild("CoralPartsBackup")
 if coralsFolder == nil then
 	coralsFolder = Instance.new("Folder")
-	coralsFolder.Name = "Corals"
-	coralsFolder.Parent = assets
+	coralsFolder.Name = "CoralPartsBackup"
+	coralsFolder.Parent = ServerStorage
 end
 
 local function newStage(species: Folder, name: string): Model
