@@ -11,6 +11,8 @@ local Types = require(ReplicatedStorage.Shared.Types)
 local Result = require(ReplicatedStorage.Shared.Util.Result)
 local PlayerStateService = require(script.Parent.PlayerStateService)
 local GrowthService = require(script.Parent.GrowthService)
+local ShopService = require(script.Parent.ShopService)
+local EconomyConfig = require(ReplicatedStorage.Shared.Config.EconomyConfig)
 local RateLimiter = require(script.Parent.Parent.Util.RateLimiter)
 local Validate = require(script.Parent.Parent.Util.Validate)
 
@@ -55,6 +57,24 @@ function NetService:Init()
 		return Validate.IsKnownId(socketId, SocketDefinitions)
 	end, function(player, socketId)
 		return GrowthService.Claim(player, socketId)
+	end)
+
+	NetService.Bind("get_catalog", function()
+		return true
+	end, function(player)
+		return ShopService.GetCatalog(player)
+	end)
+
+	NetService.Bind("buy_fragment", function(coralId, qty)
+		return Validate.IsKnownId(coralId, CoralDefinitions) and Validate.IsInteger(qty, 1, EconomyConfig.MAX_BUY_QTY)
+	end, function(player, coralId, qty)
+		return ShopService.BuyFragment(player, coralId, qty)
+	end)
+
+	NetService.Bind("unlock_socket", function(socketId)
+		return Validate.IsKnownId(socketId, SocketDefinitions)
+	end, function(player, socketId)
+		return ShopService.BuySocketUnlock(player, socketId)
 	end)
 
 	-- How the client asks for its data; returns its own NotLoaded so the client retries

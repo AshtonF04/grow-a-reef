@@ -7,6 +7,9 @@ local Definitions: { [string]: "Function" | "Event" } = {
     state_changed = "Event",
     plant_coral = "Function",
     claim_coral = "Function",
+    get_catalog = "Function",
+    buy_fragment = "Function",
+    unlock_socket = "Function",
 }
 
 local Remotes = {}

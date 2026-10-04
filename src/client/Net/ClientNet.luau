@@ -31,6 +31,19 @@ function ClientNet.ClaimCoral(socketId: string): Result<Types.ClaimReward>
 	return invoke("claim_coral", socketId)
 end
 
+-- { fragments = { {coralId, price, affordable} }, sockets = { {socketId, cost, affordable, available} } }
+function ClientNet.GetCatalog(): Result<any>
+	return invoke("get_catalog")
+end
+
+function ClientNet.BuyFragment(coralId: string, qty: number): Result<number>
+	return invoke("buy_fragment", coralId, qty)
+end
+
+function ClientNet.UnlockSocket(socketId: string): Result<nil>
+	return invoke("unlock_socket", socketId)
+end
+
 -- Asks the server for our state, retrying while it's still loading our data
 function ClientNet.ClientReady(): Result<boolean>
 	local last: Result<boolean> = Result.error("Internal")
