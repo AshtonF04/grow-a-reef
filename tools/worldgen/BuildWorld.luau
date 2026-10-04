@@ -4,6 +4,7 @@
 -- Run in Edit mode from the command bar: local f = game.ServerStorage.WorldGen:Clone() f.Parent = game.ServerStorage require(f.BuildWorld) f:Destroy()
 -- Needs the AI mesh templates in ServerStorage/WorldAssets (imported with ImportMesh.luau, see assets/manifest.md).
 local Lib = require(script.Parent.Lib)
+local SocketDefinitions = require(game:GetService("ReplicatedStorage").Shared.Config.SocketDefinitions)
 
 assert(game:GetService("ServerStorage"):FindFirstChild("WorldAssets"), "BuildWorld: ServerStorage.WorldAssets is missing")
 
@@ -287,7 +288,10 @@ local function buildSocket(plot: Model, cf: CFrame, socketId: string, layout)
 		pebble.Name = "Pebble"
 	end
 
-	-- Name, habitat and lock state are client billboards (WorldLabelController), not parts
+	-- Little wooden name sign at the front-right of the socket (entrance side), clear of the coral and pebbles.
+	-- Name only: lock state and price live in the socket's proximity prompt.
+	local signCf = centre * CFrame.new(2.6, 0, -4) * CFrame.Angles(0, R(-0.25, 0.05), 0)
+	Lib.NameSign(deco, signCf, SocketDefinitions[socketId].displayName, 2.6)
 
 	-- Flavour per location
 	if layout.kelp then

@@ -428,13 +428,13 @@ end
 -- WoodSign template measurements (yaw 0): 4.86 wide, 5.12 tall, plank board from y 2.4 to 4.8, faces -Z
 local SIGN_MESH = { width = 4.86, height = 5.12, depth = 1.5, boardY = 3.6, boardH = 2.4 }
 
-local function addLabels(board: BasePart, text: string)
-	for _, face in { Enum.NormalId.Front, Enum.NormalId.Back } do
+local function addLabels(board: BasePart, text: string, faces: { Enum.NormalId }?, pixelsPerStud: number?)
+	for _, face in faces or { Enum.NormalId.Front, Enum.NormalId.Back } do
 		local gui = Instance.new("SurfaceGui")
 		gui.Name = "Label" .. face.Name
 		gui.Face = face
 		gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-		gui.PixelsPerStud = 40
+		gui.PixelsPerStud = pixelsPerStud or 40
 		gui.LightInfluence = 0.2
 		local label = Instance.new("TextLabel")
 		label.Name = "Text"
@@ -457,6 +457,36 @@ local function addLabels(board: BasePart, text: string)
 		label.Parent = gui
 		gui.Parent = board
 	end
+end
+
+-- SocketSign template measurements (yaw 0): 2.6 tall, plank board x ±1.0, y 1.3 to 2.5, front face at z -0.22
+local NAME_SIGN_MESH = { height = 2.6, boardY = 1.9, boardW = 2.0, boardH = 1.2, front = -0.22 }
+
+-- Small stake sign with `text` on the front of its plank (faces -Z of `cf`). Non-collide decoration.
+function Lib.NameSign(parent: Instance, cf: CFrame, text: string, height: number): Model?
+	local mesh = Lib.Mesh("SocketSign", parent, cf, height)
+	if mesh == nil then
+		return nil
+	end
+	mesh.Name = "NameSign"
+	local k = height / NAME_SIGN_MESH.height
+	local board = Lib.Decor({
+		Name = "Board",
+		Size = Vector3.new(NAME_SIGN_MESH.boardW * 0.92, NAME_SIGN_MESH.boardH * 0.85, 0.1) * k,
+		-- just proud of the plank's front face so the text never z-fights with the wood
+		CFrame = cf * CFrame.new(0, NAME_SIGN_MESH.boardY * k, (NAME_SIGN_MESH.front - 0.06) * k),
+		Transparency = 1,
+		CastShadow = false,
+		Parent = mesh,
+	})
+	addLabels(board, text, { Enum.NormalId.Front }, 100)
+	local label = board.LabelFront.Text :: TextLabel
+	local pad = label:FindFirstChildOfClass("UIPadding") :: UIPadding
+	pad.PaddingLeft = UDim.new(0, 6)
+	pad.PaddingRight = UDim.new(0, 6)
+	pad.PaddingTop = UDim.new(0, 4)
+	pad.PaddingBottom = UDim.new(0, 4)
+	return mesh
 end
 
 function Lib.Sign(parent: Instance, cf: CFrame, text: string, width: number?, name: string?): Model
