@@ -9,6 +9,7 @@ local SocketDefinitions = require(ReplicatedStorage.Shared.Config.SocketDefiniti
 local Types = require(ReplicatedStorage.Shared.Types)
 local Result = require(ReplicatedStorage.Shared.Util.Result)
 local PlayerStateService = require(script.Parent.PlayerStateService)
+local PlacementService = require(script.Parent.PlacementService)
 
 -- Placeholder socket looks; World can tweak these without touching logic
 local SOCKET_LOOKS = {
@@ -82,6 +83,9 @@ function PlotService:Init()
 		end
 
 		_socketCache[plot] = sockets
+		-- With StreamingEnabled, a plot only streams to the players added as persistent (its owner),
+		-- so the owner always has every socket and never loses them to streaming-out
+		plot.ModelStreamingMode = Enum.ModelStreamingMode.PersistentPerPlayer
 		table.insert(_freePlots, plot)
 	end
 
@@ -102,9 +106,19 @@ function PlotService:Init()
 	end
 	print(("PlotService: %d plots ready"):format(#_freePlots))
 
-	-- Unlocking a socket anywhere refreshes the visuals with no extra wiring
+	-- Any change to unlocks/placements refreshes just that socket (ignored for players with no plot)
+	local function refreshOne(player: Player, socketId: string)
+		if _plotByPlayer[player] then
+			PlotService.RefreshSocketVisual(player, socketId)
+		end
+	end
+	PlacementService.SocketUnlocked:Connect(refreshOne)
+	PlacementService.CoralPlaced:Connect(refreshOne)
+	PlacementService.PlacementCleared:Connect(refreshOne)
+
+	-- Catch-all for direct data edits (DevTools, resets)
 	PlayerStateService.StateChanged:Connect(function(player: Player, sliceKey: string)
-		if sliceKey == "unlocks" and _plotByPlayer[player] then
+		if (sliceKey == "unlocks" or sliceKey == "placements") and _plotByPlayer[player] then
 			PlotService.RefreshAllSockets(player)
 		end
 	end)
@@ -124,6 +138,7 @@ function PlotService.AssignPlot(player: Player): Types.Result<Model>
 	end
 
 	_plotByPlayer[player] = plot
+	plot:AddPersistentPlayer(player)
 	plot:SetAttribute("OwnerUserId", player.UserId)
 	player:SetAttribute("PlotId", plot.Name)
 	PlayerStateService.SetPlotId(player, plot.Name)
@@ -145,6 +160,9 @@ function PlotService.ReleasePlot(player: Player)
 	end
 
 	plot:SetAttribute("OwnerUserId", nil)
+	pcall(function()
+		plot:RemovePersistentPlayer(player)
+	end)
 	-- Coral models are client-side only (M3), so clearing socket attributes is all the cleanup needed;
 	-- the next owner must never see the previous player's state.
 	for _, socket in _socketCache[plot] do
@@ -182,17 +200,22 @@ function PlotService.GetSocketInstance(player: Player, socketId: string): BasePa
 	return _socketCache[plot][socketId]
 end
 
--- Writes the Unlocked fact for one socket and applies the placeholder look
+-- Writes the socket's facts (Unlocked + placement) as attributes and applies the placeholder look.
+-- Attributes replicate, so every client renders models and countdowns from them. The trait is never
+-- written here (revealed separately in M6-03).
 function PlotService.RefreshSocketVisual(player: Player, socketId: string)
 	local socket = PlotService.GetSocketInstance(player, socketId)
-	local data = PlayerStateService.GetState(player)
-	if socket == nil or data == nil then
+	if socket == nil then
 		return
 	end
 
-	-- TODO(M3-08): switch to PlacementService.IsSocketUnlocked
-	local unlocked = data.unlocks.sockets[socketId] == true
+	local unlocked = PlacementService.IsSocketUnlocked(player, socketId)
 	socket:SetAttribute("Unlocked", unlocked)
+
+	local placement = PlacementService.GetPlacement(player, socketId)
+	socket:SetAttribute("CoralId", if placement then placement.coralId else nil)
+	socket:SetAttribute("PlantedAt", if placement then placement.plantedAt else nil)
+	socket:SetAttribute("ReadyAt", if placement then placement.readyAt else nil)
 
 	local look = if unlocked then SOCKET_LOOKS.unlocked else SOCKET_LOOKS.locked
 	socket.Color = look.Color
@@ -209,6 +232,9 @@ function PlotService.RefreshAllSockets(player: Player)
 		PlotService.RefreshSocketVisual(player, socketId)
 	end
 end
+
+-- RefreshSocketVisual writes placements too, so applying all placements is the same pass
+PlotService.ApplyAllPlacements = PlotService.RefreshAllSockets
 
 -- Spawns the player at their plot. CharacterAutoLoads is off (set in the bootstrap), so this is the only
 -- place characters load: on join here, and on death after RespawnTime via the Died hook below.

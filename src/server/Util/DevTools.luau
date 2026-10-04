@@ -11,6 +11,8 @@ local HttpService = game:GetService("HttpService")
 local Services = script.Parent.Parent.Services
 local PlayerStateService = require(Services.PlayerStateService)
 local DataService = require(Services.DataService)
+local InventoryService = require(Services.InventoryService)
+local PlacementService = require(Services.PlacementService)
 local TransactionLog = require(script.Parent.TransactionLog)
 
 local DevTools = {}
@@ -29,31 +31,48 @@ local function resolve(player: Player?): Player
 end
 
 function DevTools.GrantShells(player: Player?, amount: number)
-	local p = resolve(player)
-	getData(p).currencies.shells += amount
-	PlayerStateService.MarkDirty(p, "currencies")
+	return InventoryService.GrantShells(resolve(player), amount, "dev")
 end
 
+-- Grants or spends the difference so the change is logged like any other
 function DevTools.SetShells(player: Player?, amount: number)
 	local p = resolve(player)
-	getData(p).currencies.shells = amount
-	PlayerStateService.MarkDirty(p, "currencies")
+	local diff = amount - InventoryService.GetShells(p)
+	if diff > 0 then
+		return InventoryService.GrantShells(p, diff, "dev")
+	elseif diff < 0 then
+		return InventoryService.SpendShells(p, -diff, "dev")
+	end
+	return nil
 end
 
+-- Negative qty consumes
 function DevTools.GrantFragment(player: Player?, coralId: string, qty: number)
 	local p = resolve(player)
-	local fragments = getData(p).inventory.fragments
-	fragments[coralId] = (fragments[coralId] or 0) + qty
-	PlayerStateService.MarkDirty(p, "inventory")
+	if qty < 0 then
+		return InventoryService.ConsumeFragment(p, coralId, -qty, "dev")
+	end
+	return InventoryService.GrantFragment(p, coralId, qty, "dev")
 end
 
 function DevTools.UnlockAllSockets(player: Player?)
 	local p = resolve(player)
-	local sockets = getData(p).unlocks.sockets
-	for socketId in sockets do
-		sockets[socketId] = true
+	for socketId, unlocked in getData(p).unlocks.sockets do
+		if not unlocked then
+			PlacementService.UnlockSocket(p, socketId)
+		end
 	end
-	PlayerStateService.MarkDirty(p, "unlocks")
+end
+
+-- Skips the wait: makes that placement ready now
+function DevTools.FinishGrowth(player: Player?, socketId: string)
+	local p = resolve(player)
+	local placement = getData(p).placements[socketId]
+	assert(placement, "DevTools.FinishGrowth: socket is empty")
+	local growSeconds = placement.readyAt - placement.plantedAt
+	placement.readyAt = os.time()
+	placement.plantedAt = placement.readyAt - growSeconds
+	PlayerStateService.MarkDirty(p, "placements")
 end
 
 -- Clears and refills the EXISTING table in place (ProfileStore holds a reference to it)
