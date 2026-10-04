@@ -37,6 +37,7 @@ Studio-only content (plots, world, coral meshes) is documented in `assets/manife
 ## Safety and workflow
 - **Never write unbounded loops in Studio scripts.** One once froze Studio. Use fixed iteration counts and pcall.
 - **Screenshots: only take them when the user asks.** Verify with code (attributes, counts, console output) instead.
+- **Context budget:** auto-compact is set to a **200k-token** window for Opus 5.5 (`/autocompact`; the model default is 1M). That's a user-level Claude Code setting, so re-run `/autocompact` on a new machine. Keep sessions lean: avoid dumping large files or console logs, read only the lines you need, and suggest `/clear` between unrelated tasks.
 - AI `generate_mesh`: run jobs **one at a time**, since parallel jobs hit "Too Many Requests". Ask for "fully three-dimensional, round from every side" to avoid flat results.
 - Backups: `python3 tools/backup/receiver.py` (port 34900) + the Backup.luau snippet saves `studio_backup/<Service>.rbxm`. Back up before big Studio changes. Remind the user to save/publish the place, since Studio-only content isn't in git.
 - Git: branch per milestone, one commit per ticket with the `[KAN-xx]` prefix. Never push or open PRs unless asked.
