@@ -39,6 +39,9 @@ ShopService:Init()
 PlotService:Init()
 NetService:Init()
 
+-- "/dev" chat commands for admins only, live and in Studio (UserId allowlist in AdminCommands)
+require(script.Util.AdminCommands).Init()
+
 -- Studio-only command-bar helpers (see README)
 if RunService:IsStudio() then
 	local DevTools = require(script.Util.DevTools)

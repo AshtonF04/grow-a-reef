@@ -30,6 +30,7 @@ Studio-only content (plots, world, coral meshes) is documented in `assets/manife
 ## Testing in Studio (via MCP)
 - `execute_luau` runs in its own VM: `require` gives fresh module copies and `_G` isn't shared. To reach live game state, use the Studio-only bridge: `game.ServerStorage._DevBridge:Invoke("FnName", ...)`. `"Call"` invokes any service method, e.g. `Invoke("Call", "GrowthService", "Plant", player, "sandy_patch", "sun_coral")`. Functions can't be passed across VMs.
 - DevTools: GrantShells, SetShells, GrantFragment, UnlockAllSockets, FinishGrowth, ResetData, GetStateJSON, PrintTransactions, SetSimulateFailure.
+- Live admin chat commands: `/dev ...` (`src/server/Util/AdminCommands.luau`, UserId allowlist `ADMINS`: Fungo_Dev 28437485). They reuse DevTools; `_G.Dev`, `_DevBridge`, `Call` and `SetSimulateFailure` stay Studio-only. Test by sending `/dev state` with `TextChannels.RBXGeneral:SendAsync` inside `task.spawn` (SendAsync can hang the execute_luau call).
 - Unit tests: `require(game.ServerStorage.Tests.TestRunner).RunAll()` (Edit mode). Long Edit sessions cache config modules; if results look stale, clone the modules first.
 - Files created after a playtest starts aren't in that session. Stop and restart the playtest.
 - Trigger prompts with `ProximityPrompt:InputHoldBegin()/End()` from the client; click UI with `user_mouse_input` and `instance_path`.

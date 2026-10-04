@@ -10,6 +10,7 @@ local Definitions: { [string]: "Function" | "Event" } = {
     get_catalog = "Function",
     buy_fragment = "Function",
     unlock_socket = "Function",
+    admin_message = "Event", -- server -> admin client only: replies to "/dev" chat commands (AdminCommands)
 }
 
 local Remotes = {}

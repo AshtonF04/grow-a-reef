@@ -59,6 +59,23 @@ _G.Dev.Call("ServiceName", "Method", ...) -- call any server service method
 
 Tools that don't share `_G` (plugins, MCP) can use `game.ServerStorage._DevBridge:Invoke("GrantShells", nil, 100)`. Neither exists outside Studio.
 
+## Live dev chat commands (admins only)
+
+In live servers and Studio, admins can type `/dev` commands in chat. The admin list is the UserId allowlist `ADMINS` in `src/server/Util/AdminCommands.luau` (currently Fungo_Dev). Everyone else's `/dev` does nothing. Replies appear only in the admin's chat, and every use is printed to the server log. **Live, these change real saved data.**
+
+```
+/dev help
+/dev shells 500              set Shells          /dev addshells 100   grant Shells
+/dev fragment sun_coral 3    grant fragments (negative removes)
+/dev unlockall               unlock every socket
+/dev finish [socketId|all]   finish growth now
+/dev reset                   fresh first-join data
+/dev state                   Shells, fragments, sockets
+/dev txlog [n]               recent transactions → server log (F9 > Server)
+```
+
+Add `@name` to target another player in the same server, e.g. `/dev shells 50 @bob`.
+
 ## Running tests
 
 With Studio connected to Rojo, run this in the command bar (Edit mode is fine):

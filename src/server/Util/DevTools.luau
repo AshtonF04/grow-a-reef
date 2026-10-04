@@ -1,11 +1,9 @@
 --!strict
--- Studio-only test commands. They bypass normal validation, so they must never be reachable live
--- or from a client: no remote is ever connected to these. Exposed as _G.Dev in Studio.
+-- Test commands. They bypass normal validation, so no remote is ever connected to these. Two ways in:
+-- the Studio command bar (_G.Dev / _DevBridge, set up only in Studio by init.server) and AdminCommands'
+-- "/dev" chat command, which checks the speaker against its admin UserId allowlist first.
+-- SetSimulateFailure and Call stay Studio-only.
 local RunService = game:GetService("RunService")
-
-if not RunService:IsStudio() then
-	return {}
-end
 
 local HttpService = game:GetService("HttpService")
 local Services = script.Parent.Parent.Services
@@ -100,6 +98,7 @@ function DevTools.PrintTransactions(n: number?)
 end
 
 function DevTools.SetSimulateFailure(enabled: boolean)
+	assert(RunService:IsStudio(), "DevTools.SetSimulateFailure is Studio-only")
 	DataService.SetSimulateFailure(enabled)
 end
 
@@ -110,6 +109,7 @@ end
 
 -- Calls any server service method: _G.Dev.Call("GrowthService", "Plant", player, "sandy_patch", "sun_coral")
 function DevTools.Call(serviceName: string, methodName: string, ...: any): ...any
+	assert(RunService:IsStudio(), "DevTools.Call is Studio-only")
 	local module = Services:FindFirstChild(serviceName) or script.Parent:FindFirstChild(serviceName)
 	assert(module and module:IsA("ModuleScript"), "DevTools.Call: unknown module " .. serviceName)
 	local service = require(module) :: any
