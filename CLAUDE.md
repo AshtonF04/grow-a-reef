@@ -43,8 +43,8 @@ Studio-only content (plots, world, coral meshes) is documented in `assets/manife
 - Git: branch per milestone, one commit per ticket with the `[KAN-xx]` prefix. Never push or open PRs unless asked.
 - Jira (growareef.atlassian.net, project KAN, cloudId `123f81cd-37a3-4ec4-b6e4-6dd812f3de74`): move each ticket to Done (transitionId 41) as soon as it's verified.
 
-## Current state (2026-10-03)
-- M0–M4 MVP slice done on stacked branches `feature/M0-Bootstrap` → `feature/M1-Persistence` → `feature/M2-Plots` → `feature/M3-CoreLoop` → `feature/M4-Economy` → `feature/MeshCompare` (AI coral meshes). Nothing pushed.
+## Current state (2026-10-04)
+- M0–M4 MVP slice done on stacked branches `feature/M0-Bootstrap` → `feature/M1-Persistence` → `feature/M2-Plots` → `feature/M3-CoreLoop` → `feature/M4-Economy` → `feature/MeshCompare` (AI coral meshes) → `feature/UIOverhaul` (KAN-54..57: cartoon-blue UI, custom prompts, socket/owner billboards, socket unlock popup). Nothing pushed.
 - Open tickets: KAN-26 (M1 gate: two-server session-lock test + merge/tag), KAN-33 (M2 gate: multi-player/overflow test), KAN-52 (tuned economy values need both devs' review), KAN-53 (M4 gate: 390×844 phone emulator check).
 - Economy tuned by EconomySim to 20.2 min for all six sockets (Sun 120s/12, sockets 10/40/50/90/110).
 - To do manually: set Max Players to 6 in Game Settings.
