@@ -58,3 +58,21 @@ _G.Dev.Call("ServiceName", "Method", ...) -- call any server service method
 ```
 
 Tools that don't share `_G` (plugins, MCP) can use `game.ServerStorage._DevBridge:Invoke("GrantShells", nil, 100)`. Neither exists outside Studio.
+
+## Running tests
+
+With Studio connected to Rojo, run this in the command bar (Edit mode is fine):
+
+```lua
+require(game.ServerStorage.Tests.TestRunner).RunAll()
+```
+
+Specs are ModuleScripts in `tests/` named `*.spec.luau`. Each returns `{ [testName] = function() ... end }` and uses the helpers in `tests/Expect.luau`.
+
+The economy pacing simulation (target: all six sockets in 15–25 minutes):
+
+```lua
+local S = require(game.ServerStorage.Tests.EconomySim) S.PrintReport(S.Run("greedy")) S.PrintReport(S.Run("fastest"))
+```
+
+Note: in a long Edit session, Studio caches required modules. If you change a config and results look stale, restart the session (or start a playtest) before rerunning.

@@ -39,7 +39,7 @@ local SocketDefinitions: { [string]: SocketDefinition } = {
 		light = "Bright",
 		flow = "High",
 		unlockOrder = 3,
-		unlockCostShells = 50, -- placeholder: tune against the 15-25 min target
+		unlockCostShells = 40, -- tuned by EconomySim (M4-07)
 		zone = 1,
 	},
 	kelp_shade = {
@@ -48,7 +48,7 @@ local SocketDefinitions: { [string]: SocketDefinition } = {
 		light = "Dim",
 		flow = "Medium",
 		unlockOrder = 4,
-		unlockCostShells = 50, -- placeholder
+		unlockCostShells = 50, -- tuned by EconomySim
 		zone = 1,
 	},
 	rock_crevice = {
@@ -57,7 +57,7 @@ local SocketDefinitions: { [string]: SocketDefinition } = {
 		light = "Dim",
 		flow = "High",
 		unlockOrder = 5,
-		unlockCostShells = 120, -- placeholder
+		unlockCostShells = 90, -- tuned by EconomySim
 		zone = 1,
 	},
 	deep_nook = {
@@ -66,7 +66,7 @@ local SocketDefinitions: { [string]: SocketDefinition } = {
 		light = "Dim",
 		flow = "Low",
 		unlockOrder = 6,
-		unlockCostShells = 120, -- placeholder
+		unlockCostShells = 110, -- tuned by EconomySim
 		zone = 1,
 	},
 }
