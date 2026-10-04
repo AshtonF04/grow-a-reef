@@ -191,6 +191,7 @@ local function bindSocket(socketId: string, socket: BasePart)
 	local prompt = Instance.new("ProximityPrompt")
 	prompt.Name = "ReefPrompt"
 	prompt.HoldDuration = 0
+	prompt.Style = Enum.ProximityPromptStyle.Custom -- drawn by PromptController
 	prompt.MaxActivationDistance = 12
 	prompt.RequiresLineOfSight = false
 	prompt.Enabled = false
