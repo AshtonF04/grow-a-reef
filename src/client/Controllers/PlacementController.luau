@@ -5,10 +5,13 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 local CoralDefinitions = require(ReplicatedStorage.Shared.Config.CoralDefinitions)
+local SocketDefinitions = require(ReplicatedStorage.Shared.Config.SocketDefinitions)
 local TimeUtil = require(ReplicatedStorage.Shared.Util.TimeUtil)
 local ClientNet = require(script.Parent.Parent.Net.ClientNet)
 local PlotLocator = require(script.Parent.Parent.Util.PlotLocator)
 local StateController = require(script.Parent.StateController)
+local PlantTrayController = require(script.Parent.PlantTrayController)
+local ShopController = require(script.Parent.ShopController)
 local Theme = require(script.Parent.Parent.UI.Theme)
 
 local PlacementController = {}
@@ -35,6 +38,21 @@ local function pickFragment(): string?
 		end
 	end
 	return best
+end
+
+-- Next in unlockOrder: every socket with a lower order is already unlocked (same rule as ShopService)
+local function isNextToUnlock(socketId: string): boolean
+	local state = StateController.Get()
+	local def = SocketDefinitions[socketId]
+	if state == nil or def == nil then
+		return false
+	end
+	for otherId, other in SocketDefinitions do
+		if other.unlockOrder < def.unlockOrder and state.unlocks.sockets[otherId] ~= true then
+			return false
+		end
+	end
+	return true
 end
 
 -- Floating "+N 🐚" above the socket after a claim
@@ -86,17 +104,24 @@ function PlacementController.RefreshPrompt(socketId: string)
 	end
 
 	if socket:GetAttribute("Unlocked") ~= true then
-		return -- locked (M4-06 adds unlock prompts)
+		-- Only the next socket in unlockOrder offers an unlock; the prompt itself is the confirmation
+		if isNextToUnlock(socketId) then
+			local cost = SocketDefinitions[socketId].unlockCostShells
+			local shells = StateController.GetShells()
+			prompt.ObjectText = SocketDefinitions[socketId].displayName
+			prompt.ActionText = if shells >= cost
+				then ("Unlock (%d 🐚)"):format(cost)
+				else ("Need %d more 🐚"):format(cost - shells)
+			prompt.Enabled = true
+		end
+		return
 	end
 
 	local coralId = socket:GetAttribute("CoralId")
 	if coralId == nil then
-		local fragment = pickFragment()
-		if fragment then
-			prompt.ActionText = "Plant"
-			prompt.ObjectText = CoralDefinitions[fragment].displayName
-			prompt.Enabled = true
-		end
+		prompt.ObjectText = SocketDefinitions[socketId].displayName
+		prompt.ActionText = if pickFragment() then "Plant" else "Get Fragments"
+		prompt.Enabled = true
 		return
 	end
 
@@ -128,13 +153,22 @@ function PlacementController.OnSocketActivated(socketId: string)
 	PlacementController.RefreshPrompt(socketId)
 
 	local coralId = socket:GetAttribute("CoralId")
-	if coralId == nil then
-		local fragment = pickFragment()
-		if fragment then
-			local result = ClientNet.PlantCoral(socketId, fragment)
+	if socket:GetAttribute("Unlocked") ~= true then
+		local cost = SocketDefinitions[socketId].unlockCostShells
+		if StateController.GetShells() >= cost then
+			local result = ClientNet.UnlockSocket(socketId)
 			if not result.ok then
-				warn("PlacementController: plant failed: " .. tostring(result.err))
+				warn("PlacementController: unlock failed: " .. tostring(result.err))
 			end
+		else
+			ShopController.Open() -- nudge toward earning: shows prices and balance
+		end
+	elseif coralId == nil then
+		-- Empty socket: choose a coral in the plant tray, or go buy one
+		if pickFragment() then
+			PlantTrayController.Open(socketId)
+		else
+			ShopController.Open()
 		end
 	else
 		local result = ClientNet.ClaimCoral(socketId)
@@ -184,7 +218,7 @@ function PlacementController.Init()
 	PlotLocator.ObserveSockets(plot, bindSocket)
 
 	StateController.Changed:Connect(function(sliceKey: string)
-		if sliceKey == "inventory" or sliceKey == "snapshot" then
+		if sliceKey == "inventory" or sliceKey == "snapshot" or sliceKey == "currencies" or sliceKey == "unlocks" then
 			for socketId in prompts do
 				PlacementController.RefreshPrompt(socketId)
 			end
