@@ -1,0 +1,282 @@
+--!strict
+-- Bottom-sheet coral picker shown when activating an empty socket. Each card shows owned count, grow
+-- time, habitat fit and the expected payout, while keeping the target socket visible above the sheet.
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+
+local CoralDefinitions = require(ReplicatedStorage.Shared.Config.CoralDefinitions)
+local SocketDefinitions = require(ReplicatedStorage.Shared.Config.SocketDefinitions)
+local EconomyMath = require(ReplicatedStorage.Shared.Logic.EconomyMath)
+local ClientNet = require(script.Parent.Parent.Net.ClientNet)
+local StateController = require(script.Parent.StateController)
+local Theme = require(script.Parent.Parent.UI.Theme)
+local UIKit = require(script.Parent.Parent.UI.UIKit)
+local CoralIcon = require(script.Parent.Parent.UI.CoralIcon)
+
+local PlantTrayController = {}
+
+local gui: ScreenGui? = nil
+local sheet: Frame? = nil
+local titleLabel: TextLabel? = nil
+local grid: ScrollingFrame? = nil
+local currentSocket: string? = nil
+local busy = false
+
+local function formatDuration(seconds: number): string
+	if seconds >= 3600 then
+		return string.format("%dh", math.floor(seconds / 3600 + 0.5))
+	elseif seconds >= 60 then
+		return string.format("%dm", math.floor(seconds / 60 + 0.5))
+	end
+	return seconds .. "s"
+end
+
+local function build()
+	local playerGui = Players.LocalPlayer:WaitForChild("PlayerGui")
+	local screen = UIKit.new("ScreenGui", {
+		Name = "PlantTray",
+		ResetOnSpawn = false,
+		Enabled = false,
+		DisplayOrder = 5,
+		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+	})
+
+	-- Bottom sheet: ~38% of the screen height, capped width on desktop
+	local panel = UIKit.new("Frame", {
+		Name = "Sheet",
+		AnchorPoint = Vector2.new(0.5, 1),
+		Position = UDim2.fromScale(0.5, 1),
+		Size = UDim2.new(1, -16, 0.38, 0),
+		BackgroundColor3 = Theme.Colors.DeepTeal,
+		Parent = screen,
+	}, {
+		UIKit.corner(Theme.Corner.L),
+		UIKit.stroke(Theme.Colors.DeepTealDark, 4),
+		UIKit.new("UISizeConstraint", { MaxSize = Vector2.new(760, 340), MinSize = Vector2.new(300, 220) }),
+		UIKit.padding(Theme.Spacing.M),
+	})
+
+	local title = UIKit.label({
+		Name = "Title",
+		Size = UDim2.new(1, -60, 0, 34),
+		Text = "Plant",
+		TextSize = Theme.TextSize.Title,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		Parent = panel,
+	})
+
+	local close = UIKit.button({
+		Name = "Close",
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.fromScale(1, 0),
+		Size = UDim2.fromOffset(40, 40),
+		Text = "X",
+		TextSize = Theme.TextSize.Title,
+		Parent = panel,
+	}, Color3.fromRGB(220, 70, 70), Color3.fromRGB(150, 40, 40))
+	close.Activated:Connect(function()
+		PlantTrayController.Close()
+	end)
+
+	local scroll = UIKit.new("ScrollingFrame", {
+		Name = "Cards",
+		Position = UDim2.fromOffset(0, 44),
+		Size = UDim2.new(1, 0, 1, -44),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ScrollBarThickness = 6,
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		CanvasSize = UDim2.new(),
+		Parent = panel,
+	}, {
+		UIKit.new("UIGridLayout", {
+			CellSize = UDim2.new(1 / 3, -8, 0, 210),
+			CellPadding = UDim2.fromOffset(8, 8),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}),
+	})
+
+	screen.Parent = playerGui
+	gui = screen
+	sheet = panel
+	titleLabel = title
+	grid = scroll
+end
+
+local function fitChip(parent: Instance, coralId: string, socketId: string)
+	local coral = CoralDefinitions[coralId]
+	local socket = SocketDefinitions[socketId]
+	local bonus = EconomyMath.GetConditionBonus(coral, socket)
+	local text, color, textColor
+	if EconomyMath.IsConditionMatch(coral, socket) then
+		text, color, textColor = "✓ Great fit", Theme.Colors.Seafoam, Theme.Colors.TextDark
+	elseif bonus > 0 then
+		text, color, textColor = "~ OK fit", Theme.Colors.Amber, Theme.Colors.TextDark
+	else
+		text, color, textColor = "No bonus", Color3.fromRGB(200, 200, 200), Theme.Colors.TextDark
+	end
+	UIKit.new("TextLabel", {
+		Name = "Fit",
+		Size = UDim2.new(1, -8, 0, 24),
+		BackgroundColor3 = color,
+		Text = text,
+		TextColor3 = textColor,
+		FontFace = Theme.Fonts.Display,
+		TextSize = Theme.TextSize.Small,
+		LayoutOrder = 5,
+		Parent = parent,
+	}, { UIKit.corner(Theme.Corner.Pill) })
+end
+
+local function makeCard(coralId: string, socketId: string, owned: number, order: number)
+	local coral = CoralDefinitions[coralId]
+	local socket = SocketDefinitions[socketId]
+	local enabled = owned > 0
+	local card = UIKit.new("TextButton", {
+		Name = coralId,
+		AutoButtonColor = false,
+		Text = "",
+		BackgroundColor3 = if enabled then Theme.Colors.Sand else Color3.fromRGB(170, 170, 170),
+		LayoutOrder = order,
+		Parent = grid,
+	}, {
+		UIKit.corner(Theme.Corner.M),
+		UIKit.stroke(if enabled then Theme.Colors.SandDark else Color3.fromRGB(120, 120, 120), 3),
+		UIKit.padding(6),
+		UIKit.new("UIListLayout", {
+			HorizontalAlignment = Enum.HorizontalAlignment.Center,
+			Padding = UDim.new(0, 2),
+			SortOrder = Enum.SortOrder.LayoutOrder,
+		}),
+	})
+
+	local icon = CoralIcon.new(coralId, { Size = UDim2.new(1, 0, 0, 80), LayoutOrder = 1 })
+	icon.ImageTransparency = if enabled then 0 else 0.5
+	icon.Parent = card
+
+	UIKit.new("TextLabel", {
+		Size = UDim2.new(1, 0, 0, 22),
+		BackgroundTransparency = 1,
+		Text = coral.displayName,
+		TextColor3 = Theme.Colors.TextDark,
+		FontFace = Theme.Fonts.Display,
+		TextSize = Theme.TextSize.Body,
+		TextScaled = false,
+		LayoutOrder = 2,
+		Parent = card,
+	})
+	UIKit.new("TextLabel", {
+		Size = UDim2.new(1, 0, 0, 18),
+		BackgroundTransparency = 1,
+		Text = ("Owned x%d  ·  ⏱ %s"):format(owned, formatDuration(coral.growSeconds)),
+		TextColor3 = Theme.Colors.TextDark,
+		FontFace = Theme.Fonts.Body,
+		TextSize = Theme.TextSize.Small,
+		LayoutOrder = 3,
+		Parent = card,
+	})
+	local stage = if EconomyMath.IsConditionMatch(coral, socket) then "Flourishing" else "Mature"
+	UIKit.new("TextLabel", {
+		Size = UDim2.new(1, 0, 0, 18),
+		BackgroundTransparency = 1,
+		Text = ("Earns ~%d 🐚"):format(EconomyMath.ComputeHarvestYield(coral, socket, stage)),
+		TextColor3 = Theme.Colors.CoralOrangeDark,
+		FontFace = Theme.Fonts.Display,
+		TextSize = Theme.TextSize.Small,
+		LayoutOrder = 4,
+		Parent = card,
+	})
+	fitChip(card, coralId, socketId)
+
+	if enabled then
+		card.Activated:Connect(function()
+			PlantTrayController.SelectCoral(coralId)
+		end)
+	end
+end
+
+function PlantTrayController.Refresh()
+	local socketId = currentSocket
+	local state = StateController.Get()
+	if grid == nil or socketId == nil or state == nil then
+		return
+	end
+	for _, child in grid:GetChildren() do
+		if child:IsA("GuiObject") then
+			child:Destroy()
+		end
+	end
+
+	-- Corals in unlocked zones; owned first, then by grow time
+	local list = {}
+	for coralId, coral in CoralDefinitions do
+		if coral.zone <= state.unlocks.zone then
+			table.insert(list, coralId)
+		end
+	end
+	local fragments = state.inventory.fragments
+	table.sort(list, function(a, b)
+		local ownA, ownB = (fragments[a] or 0) > 0, (fragments[b] or 0) > 0
+		if ownA ~= ownB then
+			return ownA
+		end
+		return CoralDefinitions[a].growSeconds < CoralDefinitions[b].growSeconds
+	end)
+	for i, coralId in list do
+		makeCard(coralId, socketId, fragments[coralId] or 0, i)
+	end
+end
+
+function PlantTrayController.Open(socketId: string)
+	if gui == nil then
+		build()
+	end
+	currentSocket = socketId
+	local socket = SocketDefinitions[socketId]
+	if titleLabel then
+		titleLabel.Text = "Plant on " .. (if socket then socket.displayName else socketId)
+	end
+	PlantTrayController.Refresh()
+	local screen = gui :: ScreenGui
+	local panel = sheet :: Frame
+	screen.Enabled = true
+	panel.Position = UDim2.fromScale(0.5, 1.4)
+	TweenService:Create(panel, TweenInfo.new(0.25, Enum.EasingStyle.Back), { Position = UDim2.fromScale(0.5, 1) }):Play()
+end
+
+function PlantTrayController.Close()
+	currentSocket = nil
+	if gui then
+		gui.Enabled = false
+	end
+end
+
+function PlantTrayController.IsOpen(): boolean
+	return gui ~= nil and gui.Enabled
+end
+
+function PlantTrayController.SelectCoral(coralId: string)
+	local socketId = currentSocket
+	if socketId == nil or busy then
+		return
+	end
+	busy = true
+	local result = ClientNet.PlantCoral(socketId, coralId)
+	busy = false
+	if result.ok then
+		PlantTrayController.Close()
+	else
+		warn("PlantTrayController: plant failed: " .. tostring(result.err))
+	end
+end
+
+function PlantTrayController.Init()
+	StateController.Changed:Connect(function(sliceKey: string)
+		if PlantTrayController.IsOpen() and (sliceKey == "inventory" or sliceKey == "snapshot") then
+			PlantTrayController.Refresh()
+		end
+	end)
+end
+
+return PlantTrayController
