@@ -10,8 +10,9 @@ local Signal = require(ReplicatedStorage.Shared.Util.Signal)
 local PlayerStateService = require(script.Parent.PlayerStateService)
 local TransactionLog = require(script.Parent.Parent.Util.TransactionLog)
 
--- TODO(M4-01): moves to EconomyConfig
-local MAX_GRANT_PER_CALL = 10000
+local EconomyConfig = require(ReplicatedStorage.Shared.Config.EconomyConfig)
+
+local MAX_GRANT_PER_CALL = EconomyConfig.MAX_GRANT_PER_CALL
 
 type Result<T> = Types.Result<T>
 
