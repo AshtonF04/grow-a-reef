@@ -66,6 +66,10 @@ function DevTools.ResetData(player: Player?)
 	end
 	PlayerStateService.ApplyFirstJoin(data)
 	PlayerStateService.ReplicateSnapshot(p)
+	-- Also mark every slice dirty so server listeners (plot visuals etc.) refresh
+	for _, slice in { "currencies", "unlocks", "inventory", "placements", "discoveries", "tutorial" } do
+		PlayerStateService.MarkDirty(p, slice)
+	end
 end
 
 function DevTools.PrintState(player: Player?)

@@ -12,6 +12,11 @@ require(ReplicatedStorage.Shared.Config.CoralDefinitions)
 local Remotes = require(ReplicatedStorage.Shared.Net.Remotes)
 local Result = require(ReplicatedStorage.Shared.Util.Result)
 
+-- No character loads until the player's plot is assigned: PlotService.SpawnPlayerAtPlot is the only
+-- place characters load (on join and after death). Any feature that assumes a character exists on join
+-- must wait for CharacterAdded instead.
+Players.CharacterAutoLoads = false
+
 -- 1. Create remotes
 Remotes.CreateAll()
 
@@ -42,15 +47,36 @@ if RunService:IsStudio() then
 end
 
 -- Handler Methods
-local function onPlayerAdded(player: Player)
-	-- Yields while the save loads; nil means the load failed and the player was already kicked
-	local data = PlayerStateService.InitPlayerState(player)
-	if data == nil then
-		return
-	end
+local function stillHere(player: Player): boolean
+	return player.Parent == Players
 end
 
+local function onPlayerAdded(player: Player)
+	-- 1. Load data (yields); nil means the load failed and the player was already kicked
+	local data = PlayerStateService.InitPlayerState(player)
+	if data == nil or not stillHere(player) then
+		return
+	end
+
+	-- 2. Claim a plot
+	local plotResult = PlotService.AssignPlot(player)
+	if not plotResult.ok then
+		player:Kick("This server is full, please try another")
+		PlayerStateService.RemovePlayer(player)
+		return
+	end
+	if not stillHere(player) then
+		return
+	end
+
+	-- 3. Show their sockets, 4. spawn them there
+	PlotService.RefreshAllSockets(player)
+	PlotService.SpawnPlayerAtPlot(player)
+end
+
+-- Release the plot before the data; both are safe for players who never finished joining
 local function onPlayerRemoving(player: Player)
+	PlotService.ReleasePlot(player)
 	PlayerStateService.RemovePlayer(player)
 end
 
