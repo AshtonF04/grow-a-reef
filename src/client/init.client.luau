@@ -15,7 +15,7 @@ StateController.Init()
 -- 2. HUD is spawned so its GUI setup never delays the handshake
 task.spawn(function()
 	HUDController.Init()
-	HUDController.AddButton("Shop", "🛒", Theme.Colors.CoralOrange, Theme.Colors.CoralOrangeDark, 1)
+	HUDController.AddButton("Shop", "🛒", Theme.Colors.Green, Theme.Colors.GreenDark, 1)
 end)
 HUDController.ButtonPressed:Connect(function(name: string)
 	if name == "Shop" then

@@ -6,6 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
 local CoralDefinitions = require(ReplicatedStorage.Shared.Config.CoralDefinitions)
+local HabitatIcons = require(ReplicatedStorage.Shared.Config.HabitatIcons)
 local ClientNet = require(script.Parent.Parent.Net.ClientNet)
 local StateController = require(script.Parent.StateController)
 local Theme = require(script.Parent.Parent.UI.Theme)
@@ -40,60 +41,36 @@ local function build()
 		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 	})
 
-	local frame = UIKit.new("Frame", {
+	local window = UIKit.panel({
 		Name = "Panel",
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.fromScale(0.5, 0.52),
-		Size = UDim2.fromScale(0.92, 0.72),
-		BackgroundColor3 = Theme.Colors.DeepTeal,
+		Position = UDim2.fromScale(0.5, 0.54),
+		Size = UDim2.fromScale(0.9, 0.72),
 		Parent = screen,
-	}, {
-		UIKit.corner(Theme.Corner.L),
-		UIKit.stroke(Theme.Colors.DeepTealDark, 4),
-		UIKit.new("UISizeConstraint", { MaxSize = Vector2.new(480, 560) }),
-		UIKit.padding(Theme.Spacing.L),
-	})
-	UIKit.new("UIScale", { Parent = frame })
-
-	UIKit.label({
-		Name = "Title",
-		Size = UDim2.new(1, -60, 0, 40),
-		Text = "🛒 Coral Shop",
-		TextSize = Theme.TextSize.Big,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		Parent = frame,
-	})
-	local close = UIKit.button({
-		Name = "Close",
-		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.fromScale(1, 0),
-		Size = UDim2.fromOffset(44, 44),
-		Text = "X",
-		TextSize = Theme.TextSize.Title,
-		Parent = frame,
-	}, Color3.fromRGB(220, 70, 70), Color3.fromRGB(150, 40, 40))
-	close.Activated:Connect(function()
+	}, "Coral Shop", function()
 		ShopController.Close()
 	end)
+	UIKit.new("UISizeConstraint", { MaxSize = Vector2.new(480, 560), Parent = window.frame })
+	UIKit.new("UIScale", { Parent = window.frame })
 
 	local scroll = UIKit.new("ScrollingFrame", {
 		Name = "List",
-		Position = UDim2.fromOffset(0, 52),
-		Size = UDim2.new(1, 0, 1, -52),
+		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ScrollBarThickness = 6,
+		ScrollBarImageColor3 = Theme.Colors.BlueLight,
 		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		CanvasSize = UDim2.new(),
-		Parent = frame,
+		Parent = window.content,
 	}, {
 		UIKit.new("UIListLayout", { Padding = UDim.new(0, 10), SortOrder = Enum.SortOrder.LayoutOrder }),
-		UIKit.new("UIPadding", { PaddingRight = UDim.new(0, 8) }),
+		UIKit.new("UIPadding", { PaddingRight = UDim.new(0, 8), PaddingTop = UDim.new(0, 4) }),
 	})
 
 	screen.Parent = playerGui
 	gui = screen
-	panel = frame
+	panel = window.frame
 	list = scroll
 end
 
@@ -102,51 +79,50 @@ local function makeRow(entry: FragmentEntry, order: number)
 	local row = UIKit.new("Frame", {
 		Name = entry.coralId,
 		Size = UDim2.new(1, 0, 0, 96),
-		BackgroundColor3 = Theme.Colors.Sand,
+		BackgroundColor3 = Theme.Colors.BlueInset,
 		LayoutOrder = order,
 		Parent = list,
 	}, {
 		UIKit.corner(Theme.Corner.M),
-		UIKit.stroke(Theme.Colors.SandDark, 3),
+		UIKit.stroke(Theme.Colors.BlueDark, 3),
 	})
-	local icon = CoralIcon.new(entry.coralId, { Size = UDim2.fromOffset(84, 84), Position = UDim2.fromOffset(6, 6) })
-	icon.Parent = row
+	local iconBubble = UIKit.new("Frame", {
+		Position = UDim2.fromOffset(6, 6),
+		Size = UDim2.fromOffset(84, 84),
+		BackgroundColor3 = Theme.Colors.BlueLight,
+		Parent = row,
+	}, { UIKit.corner(Theme.Corner.M), UIKit.stroke(Theme.Colors.BlueDark, 2) })
+	local icon = CoralIcon.new(entry.coralId, { Size = UDim2.fromScale(1, 1) })
+	icon.Parent = iconBubble
 
-	UIKit.new("TextLabel", {
-		Position = UDim2.fromOffset(96, 8),
-		Size = UDim2.new(1, -230, 0, 28),
-		BackgroundTransparency = 1,
+	UIKit.label({
+		Position = UDim2.fromOffset(98, 8),
+		Size = UDim2.new(1, -234, 0, 28),
 		Text = coral.displayName,
 		TextXAlignment = Enum.TextXAlignment.Left,
-		TextColor3 = Theme.Colors.TextDark,
-		FontFace = Theme.Fonts.Display,
 		TextSize = Theme.TextSize.Title,
 		Parent = row,
 	})
-	UIKit.new("TextLabel", {
-		Position = UDim2.fromOffset(96, 38),
-		Size = UDim2.new(1, -230, 0, 20),
-		BackgroundTransparency = 1,
+	UIKit.label({
+		Position = UDim2.fromOffset(98, 38),
+		Size = UDim2.new(1, -234, 0, 20),
 		Text = ("⏱ %s  ·  %s %s  ·  ~%d 🐚"):format(
 			formatDuration(coral.growSeconds),
-			if coral.light == "Bright" then "☀️" else "🌙",
-			coral.flow,
+			HabitatIcons.Light[coral.light],
+			HabitatIcons.Flow[coral.flow],
 			coral.baseYield
 		),
 		TextXAlignment = Enum.TextXAlignment.Left,
-		TextColor3 = Theme.Colors.TextDark,
 		FontFace = Theme.Fonts.Body,
 		TextSize = Theme.TextSize.Small,
 		Parent = row,
 	})
-	local owned = UIKit.new("TextLabel", {
-		Position = UDim2.fromOffset(96, 62),
-		Size = UDim2.new(1, -230, 0, 20),
-		BackgroundTransparency = 1,
+	local owned = UIKit.label({
+		Position = UDim2.fromOffset(98, 62),
+		Size = UDim2.new(1, -234, 0, 20),
 		Text = "Owned x0",
 		TextXAlignment = Enum.TextXAlignment.Left,
-		TextColor3 = Theme.Colors.SeafoamDark,
-		FontFace = Theme.Fonts.Display,
+		TextColor3 = Theme.Colors.Gold,
 		TextSize = Theme.TextSize.Small,
 		Parent = row,
 	})
@@ -155,11 +131,11 @@ local function makeRow(entry: FragmentEntry, order: number)
 		Name = "Buy",
 		AnchorPoint = Vector2.new(1, 0.5),
 		Position = UDim2.new(1, -10, 0.5, 0),
-		Size = UDim2.fromOffset(120, 56),
+		Size = UDim2.fromOffset(124, 52),
 		Text = "Buy " .. entry.price .. " 🐚",
 		TextSize = Theme.TextSize.Body,
 		Parent = row,
-	})
+	}, Theme.Colors.Green, Theme.Colors.GreenDark)
 	button.Activated:Connect(function()
 		ShopController.Buy(entry.coralId)
 	end)
@@ -177,13 +153,12 @@ local function applyState()
 			row.owned.Text = "Owned x" .. count
 			local affordable = shells >= entry.price
 			row.button.Active = affordable
-			row.button.AutoButtonColor = false
 			if affordable then
 				row.button.Text = "Buy " .. entry.price .. " 🐚"
-				row.button.BackgroundColor3 = Theme.Colors.CoralOrange
+				UIKit.setButtonColor(row.button, Theme.Colors.Green, Theme.Colors.GreenDark)
 			else
 				row.button.Text = "Need " .. (entry.price - shells) .. " more"
-				row.button.BackgroundColor3 = Theme.Colors.Muted
+				UIKit.setButtonColor(row.button, Theme.Colors.Disabled, Theme.Colors.DisabledDark)
 			end
 		end
 	end

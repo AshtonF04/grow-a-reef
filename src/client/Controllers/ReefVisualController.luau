@@ -71,7 +71,7 @@ local function cloneStageModel(coralId: string, visualStage: string): Model
 	local m = Instance.new("Model")
 	local p = Instance.new("Part")
 	p.Size = Vector3.new(1, 1.5, 1)
-	p.Color = Theme.Colors.CoralOrange
+	p.Color = Theme.Colors.Red
 	p.Anchored = true
 	p.CanCollide = false
 	p.CanQuery = false
@@ -124,11 +124,12 @@ local function buildTimer(socket: BasePart): (BillboardGui, TextLabel)
 	})
 	local pill = UIKit.new("Frame", {
 		Size = UDim2.fromScale(1, 1),
-		BackgroundColor3 = Theme.Colors.DeepTeal,
+		BackgroundColor3 = Theme.Colors.Blue,
 		Parent = gui,
 	}, {
 		UIKit.corner(Theme.Corner.Pill),
-		UIKit.stroke(Theme.Colors.DeepTealDark, 3),
+		UIKit.stroke(Theme.Colors.BlueDark, 3),
+		UIKit.gloss(),
 	})
 	local label = UIKit.label({
 		Name = "Time",
@@ -153,7 +154,7 @@ local function updateTimerText(socket: BasePart, visual: SocketVisual)
 		local ready = if visual.flourishing then "✨ Ready!" else "Ready!"
 		if label.Text ~= ready then
 			label.Text = ready
-			pill.BackgroundColor3 = Theme.Colors.Seafoam
+			UIKit.setButtonColor(pill, Theme.Colors.Green, Theme.Colors.GreenDark)
 			-- little bounce to draw the eye
 			local gui = visual.timer :: BillboardGui
 			gui.Size = UDim2.fromOffset(130, 46)
@@ -161,7 +162,7 @@ local function updateTimerText(socket: BasePart, visual: SocketVisual)
 		end
 	else
 		label.Text = formatTime(remaining)
-		pill.BackgroundColor3 = Theme.Colors.DeepTeal
+		UIKit.setButtonColor(pill, Theme.Colors.Blue, Theme.Colors.BlueDark)
 	end
 end
 

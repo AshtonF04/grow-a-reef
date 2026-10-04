@@ -21,6 +21,13 @@ local shellsScale: UIScale? = nil
 local buttonColumn: Frame? = nil
 local lastShells: number? = nil
 
+-- 12345 -> "12,345"
+local function formatNumber(n: number): string
+	local text = tostring(math.floor(n))
+	local formatted = text:reverse():gsub("(%d%d%d)", "%1,"):reverse()
+	return (formatted:gsub("^,", ""))
+end
+
 local function build(playerGui: PlayerGui)
 	-- ResetOnSpawn = false so cached references survive character respawns
 	local gui = UIKit.new("ScreenGui", {
@@ -31,58 +38,23 @@ local function build(playerGui: PlayerGui)
 		DisplayOrder = 1,
 	})
 
-	-- Shells pill, top centre
-	local pill = UIKit.new("Frame", {
+	-- Shells pill, top centre: gold coin bubble + count, like the reference's currency pill
+	local pill, label = UIKit.pill({
 		Name = "ShellsPill",
 		AnchorPoint = Vector2.new(0.5, 0),
 		Position = UDim2.new(0.5, 0, 0, Theme.Spacing.S),
-		Size = UDim2.fromOffset(190, 50),
-		BackgroundColor3 = Theme.Colors.DeepTeal,
+		Size = UDim2.fromOffset(200, 52),
 		Parent = gui,
-	}, {
-		UIKit.corner(Theme.Corner.Pill),
-		UIKit.stroke(Theme.Colors.DeepTealDark, 4),
-		UIKit.gradient(Color3.new(1, 1, 1), Color3.fromRGB(190, 190, 190)),
-	})
+	}, "0", "🐚")
+	label.Name = "ShellsLabel"
 	local scale = UIKit.new("UIScale", { Parent = pill })
-
-	-- Shell icon bubble overlapping the left edge of the pill
-	UIKit.new("Frame", {
-		Name = "IconBubble",
-		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.new(0, 8, 0.5, 0),
-		Size = UDim2.fromOffset(58, 58),
-		BackgroundColor3 = Theme.Colors.Sand,
-		Parent = pill,
-	}, {
-		UIKit.corner(Theme.Corner.Pill),
-		UIKit.stroke(Theme.Colors.SandDark, 4),
-		UIKit.new("TextLabel", {
-			BackgroundTransparency = 1,
-			Size = UDim2.fromScale(1, 1),
-			Text = "🐚",
-			TextScaled = true,
-			FontFace = Theme.Fonts.Display,
-		}, { UIKit.padding(8) }),
-	})
-
-	local label = UIKit.label({
-		Name = "ShellsLabel",
-		AnchorPoint = Vector2.new(0, 0.5),
-		Position = UDim2.new(0, 44, 0.5, 0),
-		Size = UDim2.new(1, -56, 1, -12),
-		Text = "Shells: 0",
-		TextSize = Theme.TextSize.Title,
-		TextXAlignment = Enum.TextXAlignment.Center,
-		Parent = pill,
-	})
 
 	-- Left-side button column (Shop etc.), registered by other controllers via AddButton
 	local column = UIKit.new("Frame", {
 		Name = "Buttons",
 		AnchorPoint = Vector2.new(0, 0.5),
 		Position = UDim2.new(0, Theme.Spacing.M, 0.5, 0),
-		Size = UDim2.fromOffset(84, 300),
+		Size = UDim2.fromOffset(84, 320),
 		BackgroundTransparency = 1,
 		Parent = gui,
 	}, {
@@ -136,7 +108,7 @@ function HUDController.UpdateHUD(state: Types.ClientState)
 		return
 	end
 	local shells = state.currencies.shells
-	label.Text = "Shells: " .. shells
+	label.Text = formatNumber(shells)
 
 	-- Pop the pill when the balance goes up
 	if lastShells ~= nil and shells > lastShells and shellsScale then
@@ -146,31 +118,32 @@ function HUDController.UpdateHUD(state: Types.ClientState)
 	lastShells = shells
 end
 
--- Adds a square button to the left column; fires ButtonPressed(name) when tapped
+-- Adds a round button with a caption to the left column; fires ButtonPressed(name) when tapped
 function HUDController.AddButton(name: string, icon: string, color: Color3?, darkColor: Color3?, order: number?): TextButton?
 	local column = buttonColumn
 	if column == nil then
 		return nil
 	end
-	local button = UIKit.button({
+	local button = UIKit.circleButton({
 		Name = name .. "Button",
-		Size = UDim2.fromOffset(84, 84),
 		Text = "",
 		LayoutOrder = order or 0,
 		Parent = column,
-	}, color, darkColor)
+	}, 76, color, darkColor)
 	UIKit.new("TextLabel", {
 		BackgroundTransparency = 1,
-		Size = UDim2.fromScale(1, 0.62),
-		Position = UDim2.fromScale(0, 0.04),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.45),
+		Size = UDim2.fromScale(0.6, 0.6),
 		Text = icon,
 		TextScaled = true,
-		FontFace = Theme.Fonts.Display,
+		FontFace = Theme.Fonts.Body,
 		Parent = button,
 	})
 	UIKit.label({
-		Size = UDim2.fromScale(1, 0.32),
-		Position = UDim2.fromScale(0, 0.64),
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 1),
+		Size = UDim2.new(1, 8, 0, 24),
 		Text = name,
 		TextSize = Theme.TextSize.Body,
 		Parent = button,

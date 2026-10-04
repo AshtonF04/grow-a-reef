@@ -68,10 +68,10 @@ local function popReward(socket: BasePart, text: string)
 	label.Text = text
 	label.TextScaled = true
 	label.FontFace = Theme.Fonts.Display
-	label.TextColor3 = Theme.Colors.Amber
+	label.TextColor3 = Theme.Colors.Gold
 	local stroke = Instance.new("UIStroke")
 	stroke.Thickness = 3
-	stroke.Color = Theme.Colors.Outline
+	stroke.Color = Theme.Colors.Navy
 	stroke.Parent = label
 	label.Parent = gui
 	gui.Adornee = socket

@@ -42,53 +42,31 @@ local function build()
 		ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 	})
 
-	-- Bottom sheet: ~38% of the screen height, capped width on desktop
-	local panel = UIKit.new("Frame", {
+	-- Bottom sheet: ~40% of the screen height, capped width on desktop
+	local window = UIKit.panel({
 		Name = "Sheet",
 		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.fromScale(0.5, 1),
-		Size = UDim2.new(1, -16, 0.38, 0),
-		BackgroundColor3 = Theme.Colors.DeepTeal,
+		Position = UDim2.new(0.5, 0, 1, -8),
+		Size = UDim2.new(1, -24, 0.4, 0),
 		Parent = screen,
-	}, {
-		UIKit.corner(Theme.Corner.L),
-		UIKit.stroke(Theme.Colors.DeepTealDark, 4),
-		UIKit.new("UISizeConstraint", { MaxSize = Vector2.new(760, 340), MinSize = Vector2.new(300, 220) }),
-		UIKit.padding(Theme.Spacing.M),
-	})
-
-	local title = UIKit.label({
-		Name = "Title",
-		Size = UDim2.new(1, -60, 0, 34),
-		Text = "Plant",
-		TextSize = Theme.TextSize.Title,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		Parent = panel,
-	})
-
-	local close = UIKit.button({
-		Name = "Close",
-		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.fromScale(1, 0),
-		Size = UDim2.fromOffset(40, 40),
-		Text = "X",
-		TextSize = Theme.TextSize.Title,
-		Parent = panel,
-	}, Color3.fromRGB(220, 70, 70), Color3.fromRGB(150, 40, 40))
-	close.Activated:Connect(function()
+	}, "Plant", function()
 		PlantTrayController.Close()
 	end)
+	UIKit.new("UISizeConstraint", { MaxSize = Vector2.new(760, 360), MinSize = Vector2.new(300, 240), Parent = window.frame })
+	local panel = window.frame
+	local title = window.title
 
 	local scroll = UIKit.new("ScrollingFrame", {
 		Name = "Cards",
-		Position = UDim2.fromOffset(0, 44),
-		Size = UDim2.new(1, 0, 1, -44),
+		Position = UDim2.fromOffset(0, 4),
+		Size = UDim2.new(1, 0, 1, -4),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ScrollBarThickness = 6,
+		ScrollBarImageColor3 = Theme.Colors.BlueLight,
 		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		CanvasSize = UDim2.new(),
-		Parent = panel,
+		Parent = window.content,
 	}, {
 		UIKit.new("UIGridLayout", {
 			CellSize = UDim2.new(1 / 3, -8, 0, 210),
@@ -114,7 +92,7 @@ local function fitChip(parent: Instance, coralId: string, socketId: string)
 	elseif bonus > 0 then
 		text, color, textColor = "~ OK fit", Theme.Colors.Amber, Theme.Colors.TextDark
 	else
-		text, color, textColor = "No bonus", Color3.fromRGB(200, 200, 200), Theme.Colors.TextDark
+		text, color, textColor = "No bonus", Theme.Colors.BlueLight, Theme.Colors.TextDark
 	end
 	UIKit.new("TextLabel", {
 		Name = "Fit",
@@ -122,7 +100,7 @@ local function fitChip(parent: Instance, coralId: string, socketId: string)
 		BackgroundColor3 = color,
 		Text = text,
 		TextColor3 = textColor,
-		FontFace = Theme.Fonts.Display,
+		FontFace = Theme.Fonts.Body,
 		TextSize = Theme.TextSize.Small,
 		LayoutOrder = 5,
 		Parent = parent,
@@ -137,12 +115,12 @@ local function makeCard(coralId: string, socketId: string, owned: number, order:
 		Name = coralId,
 		AutoButtonColor = false,
 		Text = "",
-		BackgroundColor3 = if enabled then Theme.Colors.Sand else Color3.fromRGB(170, 170, 170),
+		BackgroundColor3 = if enabled then Theme.Colors.BlueInset else Theme.Colors.Disabled,
 		LayoutOrder = order,
 		Parent = grid,
 	}, {
 		UIKit.corner(Theme.Corner.M),
-		UIKit.stroke(if enabled then Theme.Colors.SandDark else Color3.fromRGB(120, 120, 120), 3),
+		UIKit.stroke(if enabled then Theme.Colors.BlueDark else Theme.Colors.DisabledDark, 3),
 		UIKit.padding(6),
 		UIKit.new("UIListLayout", {
 			HorizontalAlignment = Enum.HorizontalAlignment.Center,
@@ -155,34 +133,26 @@ local function makeCard(coralId: string, socketId: string, owned: number, order:
 	icon.ImageTransparency = if enabled then 0 else 0.5
 	icon.Parent = card
 
-	UIKit.new("TextLabel", {
+	UIKit.label({
 		Size = UDim2.new(1, 0, 0, 22),
-		BackgroundTransparency = 1,
 		Text = coral.displayName,
-		TextColor3 = Theme.Colors.TextDark,
-		FontFace = Theme.Fonts.Display,
 		TextSize = Theme.TextSize.Body,
-		TextScaled = false,
 		LayoutOrder = 2,
 		Parent = card,
 	})
-	UIKit.new("TextLabel", {
+	UIKit.label({
 		Size = UDim2.new(1, 0, 0, 18),
-		BackgroundTransparency = 1,
 		Text = ("Owned x%d  ·  ⏱ %s"):format(owned, formatDuration(coral.growSeconds)),
-		TextColor3 = Theme.Colors.TextDark,
 		FontFace = Theme.Fonts.Body,
 		TextSize = Theme.TextSize.Small,
 		LayoutOrder = 3,
 		Parent = card,
 	})
 	local stage = if EconomyMath.IsConditionMatch(coral, socket) then "Flourishing" else "Mature"
-	UIKit.new("TextLabel", {
+	UIKit.label({
 		Size = UDim2.new(1, 0, 0, 18),
-		BackgroundTransparency = 1,
 		Text = ("Earns ~%d 🐚"):format(EconomyMath.ComputeHarvestYield(coral, socket, stage)),
-		TextColor3 = Theme.Colors.CoralOrangeDark,
-		FontFace = Theme.Fonts.Display,
+		TextColor3 = Theme.Colors.Gold,
 		TextSize = Theme.TextSize.Small,
 		LayoutOrder = 4,
 		Parent = card,
@@ -235,14 +205,14 @@ function PlantTrayController.Open(socketId: string)
 	currentSocket = socketId
 	local socket = SocketDefinitions[socketId]
 	if titleLabel then
-		titleLabel.Text = "Plant on " .. (if socket then socket.displayName else socketId)
+		titleLabel.Text = if socket then socket.displayName else socketId
 	end
 	PlantTrayController.Refresh()
 	local screen = gui :: ScreenGui
 	local panel = sheet :: Frame
 	screen.Enabled = true
 	panel.Position = UDim2.fromScale(0.5, 1.4)
-	TweenService:Create(panel, TweenInfo.new(0.25, Enum.EasingStyle.Back), { Position = UDim2.fromScale(0.5, 1) }):Play()
+	TweenService:Create(panel, TweenInfo.new(0.25, Enum.EasingStyle.Back), { Position = UDim2.new(0.5, 0, 1, -8) }):Play()
 end
 
 function PlantTrayController.Close()
