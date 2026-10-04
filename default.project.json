@@ -27,45 +27,78 @@
       "$properties": {
         "FilteringEnabled": true
       },
-      "Baseplate": {
-        "$className": "Part",
-        "$properties": {
-          "Anchored": true,
-          "Color": [
-            0.38823,
-            0.37254,
-            0.38823
-          ],
-          "Locked": true,
-          "Position": [
-            0,
-            -10,
-            0
-          ],
-          "Size": [
-            512,
-            20,
-            512
-          ]
-        }
-      }
+      "$ignoreUnknownInstances": true
     },
     "Lighting": {
+      "$ignoreUnknownInstances": true,
       "$properties": {
+        "Technology": "ShadowMap",
         "Ambient": [
-          0,
-          0,
-          0
+          0.26,
+          0.38,
+          0.45
         ],
-        "Brightness": 2,
+        "OutdoorAmbient": [
+          0.44,
+          0.56,
+          0.62
+        ],
+        "Brightness": 2.5,
+        "ClockTime": 13.2,
+        "GeographicLatitude": 20,
         "GlobalShadows": true,
         "Outlines": false,
-        "Technology": "Voxel"
+        "EnvironmentDiffuseScale": 0.6,
+        "EnvironmentSpecularScale": 0.3,
+        "ColorShift_Top": [
+          0.88,
+          0.97,
+          1.0
+        ],
+        "ShadowSoftness": 0.4
+      },
+      "Atmosphere": {
+        "$className": "Atmosphere",
+        "$properties": {
+          "Density": 0.36,
+          "Offset": 0.15,
+          "Color": [
+            0.22,
+            0.56,
+            0.72
+          ],
+          "Decay": [
+            0.06,
+            0.3,
+            0.5
+          ],
+          "Glare": 0.0,
+          "Haze": 1.0
+        }
+      },
+      "UnderwaterTint": {
+        "$className": "ColorCorrectionEffect",
+        "$properties": {
+          "TintColor": [
+            0.9,
+            0.97,
+            1.0
+          ],
+          "Saturation": 0.25,
+          "Contrast": 0.1,
+          "Brightness": 0.02
+        }
       }
     },
     "SoundService": {
       "$properties": {
         "RespectFilteringEnabled": true
+      }
+    },
+    "ServerStorage": {
+      "$ignoreUnknownInstances": true,
+      "WorldGen": {
+        "$path": "tools/worldgen"
       }
     }
   }
