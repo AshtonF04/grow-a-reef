@@ -14,7 +14,7 @@ local f = game.ServerStorage.WorldGen:Clone() f.Parent = game.ServerStorage requ
 | --- | --- | --- | --- |
 | `Workspace/World/{Seafloor,Decor,Boundary,Hub}` | Low-poly underwater map: sand floor, rocks, kelp (tagged `Kelp`), corals, bubble vents, boundary spires + invisible wall, hub with giant clam, arch and welcome sign. Built by `BuildWorld.luau`. | World | exists |
 | `Workspace/PlayerPlots/Plot_1..6` | Plot models tagged `ReefPlot`, ring of 6 around the hub, entrance (-Z) facing the hub. Each has a `Base` PrimaryPart, 6 Parts named exactly after the socket ids (`sandy_patch`, `sun_ledge`, `surge_channel`, `kelp_shade`, `rock_crevice`, `deep_nook`) tagged `ReefSocket` (non-collide, queryable, each with a hidden `LockBadge` BillboardGui), a `SpawnLocation` named `PlotSpawn`, and an `OwnerSign` whose `Board` SurfaceGuis PlotService labels. Bright sockets on the open left, dim sockets under the overhang/kelp on the right. Built by `BuildWorld.luau`. | World | exists |
-| `ReplicatedStorage/Assets/Corals/<modelName>/{Bud,Young,Mature}` | Coral models per growth stage. `<modelName>` matches `CoralDefinition.modelName`. Each Model has an invisible anchored `Root` PrimaryPart at the centre of its base; every part is non-collide/query/touch; tip parts tagged `CoralTip`. | World | planned (M3) |
+| `ReplicatedStorage/Assets/Corals/<modelName>/{Bud,Young,Mature}` | Low-poly coral models per growth stage for `SunCoral`, `BranchCoral`, `BrainCoral` (`<modelName>` matches `CoralDefinition.modelName`). Each Model has an invisible anchored `Root` PrimaryPart at the centre of its base; every part is non-collide/query/touch; tip parts tagged `CoralTip`. Built by `BuildCorals.luau`. | World | exists (placeholder art) |
 | `StarterGui/HUD` | **Removed.** The HUD (and every other screen) is built from code in `src/client/UI` + `src/client/Controllers` so it lives in git. | Sys | n/a (code-built) |
 | Lighting | Underwater lighting, `Atmosphere` and the `UnderwaterTint` ColorCorrection are set in `default.project.json` (Rojo-managed). `Sky`, `SunRays`, `Bloom`, `DepthOfField` are Studio-only. | World | exists |
 | Game Settings → Max Players | Must be ≤ the plot count (6). | World | **set manually** |
@@ -24,3 +24,8 @@ local f = game.ServerStorage.WorldGen:Clone() f.Parent = game.ServerStorage requ
 `tools/backup/receiver.py` + `tools/backup/Backup.luau` save every service to `studio_backup/<Service>.rbxm`
 (git-ignored). Start the receiver (`python3 tools/backup/receiver.py`), then run `Backup.luau` in the Edit-mode
 command bar. Restore by dragging an `.rbxm` into its service.
+
+## Code-built screens (not Studio instances)
+
+`HUD`, `PlantTray` and `Shop` ScreenGuis are created at runtime by `HUDController`, `PlantTrayController`
+and `ShopController`; fish and kelp sway come from `AmbientController`. Nothing to build in Studio.
