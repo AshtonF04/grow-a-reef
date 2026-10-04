@@ -12,7 +12,7 @@ Cosy Roblox reef simulator: plant coral fragments in sockets on your plot, they 
 | --- | --- |
 | `src/shared` | `ReplicatedStorage.Shared`: Types, Config (Coral/Socket/Growth/Economy defs), Logic (pure GrowthMath, EconomyMath), Net/Remotes, Util |
 | `src/server` | `ServerScriptService.Server`: `init.server.luau` bootstrap, Services, Util (DevTools, TransactionLog, Validate, RateLimiter), Migrations |
-| `src/client` | `StarterPlayerScripts.Client`: controllers (State, HUD, Placement, ReefVisual, PlantTray, Shop, Ambient), Net/ClientNet, UI (Theme, UIKit, CoralIcon), Util/PlotLocator |
+| `src/client` | `StarterPlayerScripts.Client`: controllers (State, HUD, Placement, TapPlace, ReefVisual, PlantTray, Shop, Ambient), Net/ClientNet, UI (Theme, UIKit, CoralIcon, Toast), Util/PlotLocator |
 | `tests/` | `ServerStorage.Tests`: `*.spec.luau`, TestRunner, Expect, EconomySim |
 | `tools/worldgen/` | `ServerStorage.WorldGen`: world/coral builder scripts + `Meshgen/` (EditableMesh procedural meshes) |
 
@@ -45,6 +45,7 @@ Studio-only content (plots, world, coral meshes) is documented in `assets/manife
 
 ## Current state (2026-10-04)
 - M0–M4 MVP slice done on stacked branches `feature/M0-Bootstrap` → `feature/M1-Persistence` → `feature/M2-Plots` → `feature/M3-CoreLoop` → `feature/M4-Economy` → `feature/MeshCompare` (AI coral meshes) → `feature/UIOverhaul` (KAN-54..57: cartoon-blue UI, custom prompts, socket/owner billboards, socket unlock popup; socket/owner billboards later swapped for wooden NameSign meshes; fragments are bought only at the hub ShopStall (crab NPC, hold-E prompt, server `SHOP_RANGE`), HUD Shop button teleports there). Nothing pushed.
+- M5 in progress on `feature/M5-Feel` (branched from UIOverhaul): 5.1 toasts (`ErrorMessages` config, every ClientNet failure toasts except RateLimited) and 5.2 tap-to-place (TapPlaceController: tap/click sockets, HUD Plant → picker → placement mode with fit tags and a see-through Bud ghost, optimistic plant with rollback; prompts stay as the controller fallback) done. No Jira tickets exist for M5 yet.
 - Open tickets: KAN-26 (M1 gate: two-server session-lock test + merge/tag), KAN-33 (M2 gate: multi-player/overflow test), KAN-52 (tuned economy values need both devs' review), KAN-53 (M4 gate: 390×844 phone emulator check).
 - Economy tuned by EconomySim to 20.2 min for all six sockets (Sun 120s/12, sockets 10/40/50/90/110).
 - To do manually: set Max Players to 6 in Game Settings.

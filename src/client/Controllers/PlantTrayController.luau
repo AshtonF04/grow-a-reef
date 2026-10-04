@@ -1,6 +1,10 @@
 --!strict
--- Bottom-sheet coral picker shown when activating an empty socket. Each card shows owned count, grow
--- time, habitat fit and the expected payout, while keeping the target socket visible above the sheet.
+-- Bottom-sheet coral picker. Two ways in:
+--   Open(socketId): from an empty socket's prompt or tap. Cards show habitat fit and payout for that
+--     socket; picking one plants there optimistically (TapPlaceController.Plant).
+--   OpenPicker(): from the HUD Plant button. No socket yet; picking a coral enters tap-to-place mode
+--     (TapPlaceController.Begin), where the fit shows on every socket instead.
+-- Keeps the target socket visible above the sheet.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
@@ -9,11 +13,11 @@ local CoralDefinitions = require(ReplicatedStorage.Shared.Config.CoralDefinition
 local SocketDefinitions = require(ReplicatedStorage.Shared.Config.SocketDefinitions)
 local HabitatIcons = require(ReplicatedStorage.Shared.Config.HabitatIcons)
 local EconomyMath = require(ReplicatedStorage.Shared.Logic.EconomyMath)
-local ClientNet = require(script.Parent.Parent.Net.ClientNet)
 local StateController = require(script.Parent.StateController)
 local Theme = require(script.Parent.Parent.UI.Theme)
 local UIKit = require(script.Parent.Parent.UI.UIKit)
 local CoralIcon = require(script.Parent.Parent.UI.CoralIcon)
+local TapPlaceController = require(script.Parent.TapPlaceController)
 
 local PlantTrayController = {}
 
@@ -23,8 +27,8 @@ local titleLabel: TextLabel? = nil
 local grid: ScrollingFrame? = nil
 local lightLabel: TextLabel? = nil
 local flowLabel: TextLabel? = nil
-local currentSocket: string? = nil
-local busy = false
+local detailsStrip: Frame? = nil
+local currentSocket: string? = nil -- nil while open as the picker
 
 local function formatDuration(seconds: number): string
 	if seconds >= 3600 then
@@ -113,6 +117,7 @@ local function build()
 	grid = scroll
 	lightLabel = light
 	flowLabel = flow
+	detailsStrip = details
 end
 
 local function fitChip(parent: Instance, coralId: string, socketId: string)
@@ -140,9 +145,19 @@ local function fitChip(parent: Instance, coralId: string, socketId: string)
 	}, { UIKit.corner(Theme.Corner.Pill) })
 end
 
-local function makeCard(coralId: string, socketId: string, owned: number, order: number)
+-- Best payout across all sockets (picker mode, before a socket is chosen)
+local function bestYield(coralId: string): number
 	local coral = CoralDefinitions[coralId]
-	local socket = SocketDefinitions[socketId]
+	local best = 0
+	for _, socket in SocketDefinitions do
+		local stage = if EconomyMath.IsConditionMatch(coral, socket) then "Flourishing" else "Mature"
+		best = math.max(best, EconomyMath.ComputeHarvestYield(coral, socket, stage))
+	end
+	return best
+end
+
+local function makeCard(coralId: string, socketId: string?, owned: number, order: number)
+	local coral = CoralDefinitions[coralId]
 	local enabled = owned > 0
 	local card = UIKit.new("TextButton", {
 		Name = coralId,
@@ -181,16 +196,25 @@ local function makeCard(coralId: string, socketId: string, owned: number, order:
 		LayoutOrder = 3,
 		Parent = card,
 	})
-	local stage = if EconomyMath.IsConditionMatch(coral, socket) then "Flourishing" else "Mature"
+	local earnText
+	if socketId then
+		local socket = SocketDefinitions[socketId]
+		local stage = if EconomyMath.IsConditionMatch(coral, socket) then "Flourishing" else "Mature"
+		earnText = ("Earns ~%d 🐚"):format(EconomyMath.ComputeHarvestYield(coral, socket, stage))
+	else
+		earnText = ("Earns up to %d 🐚"):format(bestYield(coralId))
+	end
 	UIKit.label({
 		Size = UDim2.new(1, 0, 0, 18),
-		Text = ("Earns ~%d 🐚"):format(EconomyMath.ComputeHarvestYield(coral, socket, stage)),
+		Text = earnText,
 		TextColor3 = Theme.Colors.Gold,
 		TextSize = Theme.TextSize.Small,
 		LayoutOrder = 4,
 		Parent = card,
 	})
-	fitChip(card, coralId, socketId)
+	if socketId then
+		fitChip(card, coralId, socketId)
+	end
 
 	if enabled then
 		card.Activated:Connect(function()
@@ -202,7 +226,7 @@ end
 function PlantTrayController.Refresh()
 	local socketId = currentSocket
 	local state = StateController.Get()
-	if grid == nil or socketId == nil or state == nil then
+	if grid == nil or state == nil then
 		return
 	end
 	for _, child in grid:GetChildren() do
@@ -231,25 +255,48 @@ function PlantTrayController.Refresh()
 	end
 end
 
-function PlantTrayController.Open(socketId: string)
-	if gui == nil then
-		build()
-	end
-	currentSocket = socketId
-	local socket = SocketDefinitions[socketId]
-	if titleLabel then
-		titleLabel.Text = if socket then socket.displayName else socketId
-	end
-	if socket and lightLabel and flowLabel then
-		lightLabel.Text = HabitatIcons.Light[socket.light] .. " " .. HabitatIcons.LightLabel[socket.light]
-		flowLabel.Text = HabitatIcons.Flow[socket.flow] .. " " .. HabitatIcons.FlowLabel[socket.flow]
-	end
+local function show()
 	PlantTrayController.Refresh()
 	local screen = gui :: ScreenGui
 	local panel = sheet :: Frame
 	screen.Enabled = true
 	panel.Position = UDim2.fromScale(0.5, 1.4)
 	TweenService:Create(panel, TweenInfo.new(0.25, Enum.EasingStyle.Back), { Position = UDim2.new(0.5, 0, 1, -8) }):Play()
+end
+
+function PlantTrayController.OpenPicker()
+	if gui == nil then
+		build()
+	end
+	TapPlaceController.Cancel()
+	currentSocket = nil
+	if titleLabel then
+		titleLabel.Text = "Plant"
+	end
+	if detailsStrip then
+		detailsStrip.Visible = false
+	end
+	show()
+end
+
+function PlantTrayController.Open(socketId: string)
+	if gui == nil then
+		build()
+	end
+	TapPlaceController.Cancel()
+	currentSocket = socketId
+	local socket = SocketDefinitions[socketId]
+	if titleLabel then
+		titleLabel.Text = if socket then socket.displayName else socketId
+	end
+	if detailsStrip then
+		detailsStrip.Visible = true
+	end
+	if socket and lightLabel and flowLabel then
+		lightLabel.Text = HabitatIcons.Light[socket.light] .. " " .. HabitatIcons.LightLabel[socket.light]
+		flowLabel.Text = HabitatIcons.Flow[socket.flow] .. " " .. HabitatIcons.FlowLabel[socket.flow]
+	end
+	show()
 end
 
 function PlantTrayController.Close()
@@ -264,17 +311,16 @@ function PlantTrayController.IsOpen(): boolean
 end
 
 function PlantTrayController.SelectCoral(coralId: string)
-	local socketId = currentSocket
-	if socketId == nil or busy then
+	if not PlantTrayController.IsOpen() then
 		return
 	end
-	busy = true
-	local result = ClientNet.PlantCoral(socketId, coralId)
-	busy = false
-	if result.ok then
-		PlantTrayController.Close()
+	local socketId = currentSocket
+	PlantTrayController.Close()
+	if socketId then
+		-- Optimistic: the Bud shows straight away and rolls back with an error toast if the server says no
+		task.spawn(TapPlaceController.Plant, socketId, coralId)
 	else
-		warn("PlantTrayController: plant failed: " .. tostring(result.err))
+		TapPlaceController.Begin(coralId)
 	end
 end
 

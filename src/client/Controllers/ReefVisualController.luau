@@ -82,6 +82,16 @@ local function cloneStageModel(coralId: string, visualStage: string): Model
 	return m
 end
 
+-- Fresh copy of a coral stage model (used by TapPlaceController for the placement ghost)
+function ReefVisualController.CloneStageModel(coralId: string, visualStage: string): Model
+	return cloneStageModel(coralId, visualStage)
+end
+
+-- Where a coral model sits on its socket
+function ReefVisualController.GetCoralPivot(socket: BasePart): CFrame
+	return socket.CFrame * CFrame.new(0, socket.Size.Y / 2, 0)
+end
+
 -- Same rule as the server: a full light + flow match (socket id is its Part name) unlocks Flourishing
 local function isConditionMatch(coralId: string, socketId: string): boolean
 	local coral = CoralDefinitions[coralId]
@@ -237,7 +247,7 @@ function ReefVisualController.UpdateSocketVisual(socket: BasePart)
 		end
 		local model = cloneStageModel(placement.coralId, visualStage)
 		model.Name = socket.Name .. "_Coral"
-		local target = socket.CFrame * CFrame.new(0, socket.Size.Y / 2, 0)
+		local target = ReefVisualController.GetCoralPivot(socket)
 		model:PivotTo(target)
 		model.Parent = clientFolder
 		visual.model = model

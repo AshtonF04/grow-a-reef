@@ -1,7 +1,9 @@
 --!strict
--- Plant / Claim / Unlock input via client-side ProximityPrompts on the player's own sockets (works on
--- touch, mouse/keyboard and controller). Locked sockets open SocketPopupController on a short hold; empty sockets with no fragments send you to the
--- hub shop stall (ShopBoothController.Teleport). The custom tap-to-place ghost replaces this in M5-02.
+-- Plant / Claim / Unlock input for the player's own sockets. Two ways in, same action:
+-- client-side ProximityPrompts (keyboard and controller fallback) and taps/clicks on a socket
+-- (TapPlaceController.SocketTapped). Locked sockets open SocketPopupController (prompts need a short
+-- hold); empty sockets open the plant tray, or send you to the hub shop stall
+-- (ShopBoothController.Teleport) when you have no fragments.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
 
@@ -14,6 +16,7 @@ local StateController = require(script.Parent.StateController)
 local PlantTrayController = require(script.Parent.PlantTrayController)
 local ShopBoothController = require(script.Parent.ShopBoothController)
 local SocketPopupController = require(script.Parent.SocketPopupController)
+local TapPlaceController = require(script.Parent.TapPlaceController)
 local Theme = require(script.Parent.Parent.UI.Theme)
 
 local PlacementController = {}
@@ -88,7 +91,7 @@ function PlacementController.RefreshPrompt(socketId: string)
 	end
 
 	prompt.Enabled = false
-	if inFlight[socketId] then
+	if inFlight[socketId] or TapPlaceController.IsPending(socketId) then
 		return
 	end
 
@@ -156,9 +159,7 @@ function PlacementController.OnSocketActivated(socketId: string)
 		local result = ClientNet.ClaimCoral(socketId)
 		if result.ok then
 			popReward(socket, "+" .. result.value.shells .. " 🐚")
-		else
-			warn("PlacementController: claim failed: " .. tostring(result.err))
-		end
+		end -- failures show an error toast from ClientNet
 	end
 
 	inFlight[socketId] = nil
@@ -199,6 +200,8 @@ function PlacementController.Init()
 		return
 	end
 	PlotLocator.ObserveSockets(plot, bindSocket)
+	TapPlaceController.SocketTapped:Connect(PlacementController.OnSocketActivated)
+	TapPlaceController.PendingChanged:Connect(PlacementController.RefreshPrompt)
 
 	StateController.Changed:Connect(function(sliceKey: string)
 		if sliceKey == "inventory" or sliceKey == "snapshot" or sliceKey == "currencies" or sliceKey == "unlocks" then
